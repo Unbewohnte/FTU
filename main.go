@@ -13,7 +13,7 @@ import (
 // flags
 var PORT *int = flag.Int("port", 8080, "Specifies a port for a server")
 var SERVERADDR *string = flag.String("addr", "", "Specifies an IP for connection")
-var ISSERVER *bool = flag.Bool("server", false, "Server")
+var ISSERVER *bool = flag.Bool("server", false, "Server or a client")
 var DOWNLOADSFOLDER *string = flag.String("downloadto", "", "Specifies where the client will store downloaded file")
 var SHAREDFILE *string = flag.String("sharefile", "", "Specifies what file server will serve")
 

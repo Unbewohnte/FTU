@@ -4,7 +4,7 @@
 ---
 
 ## What is that ?
-This application is like an FTP server, but overcomplicated, probably overengineered monstrosity. (basically, a file server, but P2P and only one file is shared).
+This application is like an FTP server, but overcomplicated and probably overengineered monstrosity. (basically a file server, but P2P).
 
 
 ---
@@ -27,17 +27,38 @@ Thus, with a connection and a way of communication, the server will send a filei
 
 ---
 
+## Usage
+`./FTU [FLAGS_HERE]` or `FTU [FLAGS_HERE]`
+
+### Flags
+
+- `-server` (bool) - if true - creates a server (also need to provide a `-sharefile` flag in that case), if false - creates a client 
+- `-port` (int) - specifies a port; if `-server` == true - listens on that port, else - connects to given port
+- `addr` (string) - specifies an address to connect to (used when `-server=false`)
+- `-sharefile` (string) - specifies path to a file you want to share (used in pair with `-server=true`), if given a valid path - a server will offer to share this file to a client
+- `-downloadto` (string) - specifies path to a folder where the client wants to store downloaded file
+
+### Examples
+
+- `./FTU -server=true -sharefile="/home/some_path_here/FILETOSHARE.zip"` - creates a server that will share `FILETOSHARE.zip` on port `8080`
+- `./FTU -server=true -sharefile="/home/some_path_here/FILETOSHARE.zip" - port=727` - same as before, but on port `727`
+- `./FTU -server=false -downloadto="/home/some_path_here/Downloads/" -addr="localhost"` - creates a client that will try to connect to `localhost` on port `8080` and if successful - downloads a file to given path
+- `./FTU -server=false -downloadto="/home/some_path_here/Downloads/" -addr=145.125.53.212 -port=8888` - same as before, but will try to connect to `145.125.53.212` on port `8888`
+
+
+---
+
 ## Known issues|problems|lack of features|reasons why it`s bad
-1. **VERY** slow
-2. **VERY** expensive on resources
-3. If `MAXFILEDATASIZE` is bigger than appr. 1024 - the packets on the other end will not be unmarshalled due to error ??
-4. Lack of proper error-handling
-5. Lack of information about the process of transferring (ETA, lost packets, etc.) 
-6. No way to verify if the transferred file is not corrupted
-7. No encryption
+- **VERY** slow; FIXED - []   
+- **VERY** expensive on resources; FIXED - []
+- If `MAXFILEDATASIZE` is bigger than appr. 1024 - the packets on the other end will not be unmarshalled due to error ??; FIXED - []
+- Lack of proper error-handling; FIXED - []
+- Lack of information about the process of transferring (ETA, lost packets, etc.); FIXED - []
+- No way to verify if the transferred file is not corrupted; FIXED - []
+- No encryption; FIXED - [] 
 
 ## Good points
-1. It... works ?
+- It... works ?
 
 ---
 
