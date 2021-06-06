@@ -23,7 +23,7 @@ The server and the client needs to communicate with packets according to certain
 
 In my implementation there is only one basic packet template with fixed fields. The packets are divided into several groups by its headers, this way my basic packet`s template can be used in many ways, without need of creating a brand-new packet with a different kind of a template.
 
-Thus, with a connection and a way of communication, the server will send a fileinfo packet to a client that describes a filename and its size. The client will have the choice of accepting or rejecting the packet. If rejected - the connection will be closed and the program will exit. If accepted - the file will be transfered via packets. 
+Thus, with a connection and a way of communication, the server will send a fileinfo packet to a client that describes a filename and its size. The client will have the choice of accepting or rejecting the packet. If rejected - the connection will be closed and the program will exit. If accepted - the file will be transferred via packets. 
 
 ---
 
