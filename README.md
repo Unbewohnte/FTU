@@ -19,7 +19,7 @@ In order to transfer one file on one computer to another - they need to establis
 
 In order to establish a connection - there needs to be a 1) server (the owner of the file), waiting for connections, and a 2) client, who will try to connect to a server. If the requirements are met - a client will connect to a server and the packet exchange will begin.
  
-The server and the client needs to communicate with packets according to certain rules, given by a [protocol](https://github.com/unbewohnte/FTU/protocol/).
+The server and the client needs to communicate with packets according to certain rules, given by a [protocol](https://github.com/Unbewohnte/FTU/tree/main/protocol).
 
 In my implementation there is only one basic packet template with fixed fields. The packets are divided into several groups by its headers, this way my basic packet`s template can be used in many ways, without need of creating a brand-new packet with a different kind of a template.
 
