@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 
 	"github.com/Unbewohnte/FTU/protocol"
 )
@@ -19,7 +20,7 @@ func GetLocalIP() (string, error) {
 
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 
-	return string(localAddr.IP), nil
+	return localAddr.IP.String(), nil
 }
 
 // gets a remote ip. Borrowed from StackOverflow, thank you, whoever I brought it from
@@ -100,15 +101,14 @@ func (s *Server) Disconnect() {
 }
 
 // Accepts one connection
-func (s *Server) WaitForConnection() error {
+func (s *Server) WaitForConnection() {
 	connection, err := s.Listener.Accept()
 	if err != nil {
-		return fmt.Errorf("could not accept a connection: %s", err)
+		fmt.Printf("Could not accept a connection: %s", err)
+		os.Exit(-1)
 	}
 	s.Connection = connection
 	fmt.Println("New connection from ", s.Connection.RemoteAddr())
-
-	return nil
 }
 
 // Closes the listener. Used only when there is still no connection from `AcceptConnections`
@@ -174,10 +174,11 @@ func (s *Server) SendPiece() error {
 // Listens in an endless loop; reads incoming packages and puts them into channel
 func (s *Server) ReceivePackets() {
 	for {
-		incomingPacket := protocol.ReadFromConn(s.Connection)
-		isvalid, _ := protocol.IsValidPacket(incomingPacket)
-		if !isvalid {
-			continue
+		incomingPacket, err := protocol.ReadFromConn(s.Connection)
+		if err != nil {
+			// in current implementation there is no way to receive a working file even if only one packet is missing
+			fmt.Printf("Error reading a packet: %s\nExiting...", err)
+			os.Exit(-1)
 		}
 		s.IncomingPackets <- incomingPacket
 	}
@@ -226,7 +227,8 @@ func (s *Server) MainLoop() {
 			}
 			err := s.SendPiece()
 			if err != nil {
-				fmt.Println(err)
+				fmt.Printf("Could not send a piece of file: %s", err)
+				os.Exit(-1)
 			}
 
 		case protocol.HeaderDisconnecting:

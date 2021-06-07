@@ -34,39 +34,40 @@ type Packet struct {
 }
 
 // converts valid packet bytes into `Packet` struct
-func ReadPacketBytes(packetBytes []byte) Packet {
-	// makes sure that the packet is ALWAYS less or equal to the maximum packet size
-	// this allows not to use any client or server checks
-
-	//fmt.Println("READING packet: ", string(packetBytes))
-
+func ReadPacketBytes(packetBytes []byte) (Packet, error) {
 	var packet Packet
 	err := json.Unmarshal(packetBytes, &packet)
 	if err != nil {
-		fmt.Printf("Could not unmarshal the packet: %s\n", err)
-		return Packet{}
+		return Packet{}, fmt.Errorf("could not unmarshal packet bytes: %s", err)
 	}
-	return packet
+	return packet, nil
 }
 
 // Converts `Packet` struct into []byte
-func EncodePacket(packet Packet) []byte {
+func EncodePacket(packet Packet) ([]byte, error) {
 	packetBytes, err := json.Marshal(packet)
 	if err != nil {
-		return []byte("")
+		return nil, fmt.Errorf("could not marshal packet bytes: %s", err)
 	}
-	return packetBytes
+	return packetBytes, nil
 }
 
 // Measures the packet length
-func MeasurePacket(packet Packet) uint64 {
-	packetBytes := EncodePacket(packet)
-	return uint64(len(packetBytes))
+func MeasurePacket(packet Packet) (uint64, error) {
+	packetBytes, err := EncodePacket(packet)
+	if err != nil {
+		return 0, fmt.Errorf("could not measure the packet: %s", err)
+	}
+	return uint64(len(packetBytes)), nil
 }
 
 // Checks if given packet is valid, returns a boolean and an explanation message
 func IsValidPacket(packet Packet) (bool, string) {
-	if MeasurePacket(packet) > uint64(MAXPACKETSIZE) {
+	packetSize, err := MeasurePacket(packet)
+	if err != nil {
+		return false, "Measurement error"
+	}
+	if packetSize > uint64(MAXPACKETSIZE) {
 		return false, "Exceeded MAXPACKETSIZE"
 	}
 	if len(packet.FileData) > MAXFILEDATASIZE {
@@ -74,7 +75,7 @@ func IsValidPacket(packet Packet) (bool, string) {
 	}
 
 	if strings.TrimSpace(string(packet.Header)) == "" {
-		return false, "Blank header"
+		return false, "Empty header"
 	}
 	return true, ""
 }
@@ -87,69 +88,77 @@ func SendPacket(connection net.Conn, packet Packet) error {
 		return fmt.Errorf("this packet is invalid !: %v; The error: %v", packet, msg)
 	}
 
-	packetSize := MeasurePacket(packet)
+	packetSize, err := MeasurePacket(packet)
+	if err != nil {
+		return err
+	}
 
 	// write packetsize between delimeters (ie: |727|{"HEADER":"PING"...})
 	connection.Write([]byte(fmt.Sprintf("%s%d%s", PACKETSIZEDELIMETER, packetSize, PACKETSIZEDELIMETER)))
 
-	// write an actual packet
-	connection.Write(EncodePacket(packet))
+	// write the packet itself
+	packetBytes, err := EncodePacket(packet)
+	if err != nil {
+		return fmt.Errorf("could not send a packet: %s", err)
+	}
+	connection.Write(packetBytes)
 
-	//fmt.Println("Sending packet: ", string(EncodePacket(packet)), "  Length: ", packetSize)
 	return nil
 }
 
-// Reads a packet from a connection by retrieving the packet length. Only once
-// ASSUMING THAT THE PACKETS ARE SENT BY `SendPacket` method !!!!
-func ReadFromConn(connection net.Conn) Packet {
-	var gotPacketSize bool = false
+// Reads a packet from given connection.
+// ASSUMING THAT THE PACKETS ARE SENT BY `SendPacket` function !!!!
+func ReadFromConn(connection net.Conn) (Packet, error) {
+	var err error
 	var delimeterCounter int = 0
-
-	var packetSizeStr string = ""
+	var packetSizeStrBuffer string = ""
 	var packetSize int = 0
+
 	for {
-		// still need to get a packetsize
-		if !gotPacketSize {
-			// reading byte-by-byte
-			buffer := make([]byte, 1)
-			connection.Read(buffer)
+		// reading byte-by-byte
+		buffer := make([]byte, 1)
+		connection.Read(buffer) // no fixed time limit, so no need to check for an error
 
-			// found a delimeter
-			if string(buffer) == PACKETSIZEDELIMETER {
-				delimeterCounter++
+		// found a delimeter
+		if string(buffer) == PACKETSIZEDELIMETER {
+			delimeterCounter++
 
-				// the first delimeter is found, skipping the rest of the code
-				if delimeterCounter == 1 {
-					continue
-				}
-			}
-
-			// found the first delimeter, skip was performed, now reading an actual packetsize
+			// the first delimeter has been found, skipping the rest of the loop
 			if delimeterCounter == 1 {
-				packetSizeStr += string(buffer)
-			} else if delimeterCounter == 2 {
-				// found the last delimeter, thus already read the whole packetsize
-				packetSize, _ = strconv.Atoi(packetSizeStr)
-				gotPacketSize = true
+				continue
 			}
-			// skipping the rest of the code because we don`t know the packet size yet
-			continue
-		}
-		// have a packetsize, now reading the whole packet
-
-		//fmt.Println("Got a packetsize!: ", packetSize)
-		packetBuffer := make([]byte, packetSize)
-		connection.Read(packetBuffer)
-
-		packet := ReadPacketBytes(packetBuffer)
-
-		isvalid, _ := IsValidPacket(packet)
-		if isvalid {
-			return packet
 		}
 
-		break
+		// found the first delimeter, skip was performed, now reading an actual packetsize
+		if delimeterCounter == 1 {
+			// adding a character of the packet size to the `string buffer`; ie: | <- read, reading now -> 1 23|PACKET_HERE
+			packetSizeStrBuffer += string(buffer)
+
+		} else if delimeterCounter == 2 {
+			// found the last delimeter, thus already read the whole packetsize
+			// converting from string to int
+			packetSize, err = strconv.Atoi(packetSizeStrBuffer)
+			if err != nil {
+				return Packet{}, fmt.Errorf("could not convert packet size into integer: %s", err)
+			}
+			// packet size has been found, breaking from the loop
+			break
+		}
 	}
 
-	return Packet{}
+	// have a packetsize, now reading the whole packet
+	packetBuffer := make([]byte, packetSize)
+	connection.Read(packetBuffer)
+
+	packet, err := ReadPacketBytes(packetBuffer)
+	if err != nil {
+		return Packet{}, err
+	}
+
+	isvalid, msg := IsValidPacket(packet)
+	if isvalid {
+		return packet, nil
+	}
+
+	return Packet{}, fmt.Errorf("received an invalid packet. Reason: %s", msg)
 }

@@ -52,7 +52,7 @@ Thus, with a connection and a way of communication, the server will send a filei
 - **VERY** slow; FIXED - [ ]   
 - **VERY** expensive on resources; FIXED - [ ]
 - If `MAXFILEDATASIZE` is bigger than appr. 1024 - the packets on the other end will not be unmarshalled due to error ??; FIXED - [ ]
-- Lack of proper error-handling; FIXED - [ ]
+- Lack of proper error-handling; somewhat FIXED - [x]
 - Lack of information about the process of transferring (ETA, lost packets, etc.); FIXED - [ ]
 - No way to verify if the transferred file is not corrupted; FIXED - [ ]
 - No encryption; FIXED - [ ] 

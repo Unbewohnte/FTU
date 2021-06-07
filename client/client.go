@@ -139,10 +139,11 @@ func (c *Client) WritePieceOfFile(filePacket protocol.Packet) error {
 // Listens in an endless loop; reads incoming packages and puts them into channel
 func (c *Client) ReceivePackets() {
 	for {
-		incomingPacket := protocol.ReadFromConn(c.Connection)
-		isvalid, _ := protocol.IsValidPacket(incomingPacket)
-		if !isvalid {
-			continue
+		incomingPacket, err := protocol.ReadFromConn(c.Connection)
+		if err != nil {
+			// in current implementation there is no way to receive a working file even if only one packet is missing
+			fmt.Printf("Error reading a packet: %s\nExiting...", err)
+			os.Exit(-1)
 		}
 		c.IncomingPackets <- incomingPacket
 	}
