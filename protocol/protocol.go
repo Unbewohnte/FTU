@@ -6,6 +6,8 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/Unbewohnte/FTU/checksum"
 )
 
 // a package that describes how server and client should communicate
@@ -19,18 +21,19 @@ type Header string
 
 const HeaderFileData Header = "FILEDATA"
 const HeaderFileInfo Header = "FILEINFO"
-const HeaderReject Header = "FILE_REJECT"
-const HeaderAccept Header = "FILE_ACCEPT"
+const HeaderReject Header = "FILEREJECT"
+const HeaderAccept Header = "FILEACCEPT"
 const HeaderReady Header = "READY"
 const HeaderDisconnecting Header = "BYE!"
 
 // Packet structure.
 // A Packet without a header is an invalid packet
 type Packet struct {
-	Header   Header `json:"Header"`
-	Filename string `json:"Filename"`
-	Filesize uint64 `json:"Filesize"`
-	FileData []byte `json:"Filedata"`
+	Header       Header            `json:"Header"`
+	Filename     string            `json:"Filename"`
+	Filesize     uint64            `json:"Filesize"`
+	FileCheckSum checksum.CheckSum `json:"CheckSum"`
+	FileData     []byte            `json:"Filedata"`
 }
 
 // converts valid packet bytes into `Packet` struct

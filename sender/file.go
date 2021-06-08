@@ -1,11 +1,13 @@
-package server
+package sender
 
 import (
 	"fmt"
 	"os"
+
+	"github.com/Unbewohnte/FTU/checksum"
 )
 
-// Struct that represents the served file. Used internally in the server
+// Struct that represents the served file. Used internally in the sender
 type File struct {
 	path        string
 	Filename    string
@@ -14,9 +16,10 @@ type File struct {
 	LeftBytes   uint64
 	SentPackets uint64
 	Handler     *os.File
+	CheckSum    checksum.CheckSum
 }
 
-// Prepares a file for serving. Used for preparing info before sending a handshake
+// Prepares a file for serving. Used for preparing info before sending a fileinfo packet by sender
 func getFile(path string) (*File, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -24,8 +27,13 @@ func getFile(path string) (*File, error) {
 	}
 	handler, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("couldn`t be able to open the file: %s", err)
+		return nil, fmt.Errorf("wasn`t able to open the file: %s", err)
 	}
+	checksum, err := checksum.GetPartialCheckSum(handler)
+	if err != nil {
+		return nil, fmt.Errorf("could not get a partial file checksum: %s", err)
+	}
+
 	return &File{
 		path:      path,
 		Filename:  info.Name(),
@@ -33,5 +41,6 @@ func getFile(path string) (*File, error) {
 		SentBytes: 0,
 		LeftBytes: uint64(info.Size()),
 		Handler:   handler,
+		CheckSum:  checksum,
 	}, nil
 }

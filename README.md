@@ -17,7 +17,7 @@ Learning
 ## How does this work ?
 In order to transfer one file on one computer to another - they need to establish a connection. 
 
-In order to establish a connection - there needs to be a 1) server (the owner of the file), waiting for connections, and a 2) client, who will try to connect to a server. If the requirements are met - a client will connect to a server and the packet exchange will begin.
+In order to establish a connection - there needs to be a 1) sender (server) (the owner of the file), waiting for connections, and a 2) receiver (client), who will try to connect to a sender (server). If the requirements are met - a client will connect to a server and the packet exchange will begin.
  
 The server and the client needs to communicate with packets according to certain rules, given by a [protocol](https://github.com/Unbewohnte/FTU/tree/main/protocol).
 
@@ -32,18 +32,18 @@ Thus, with a connection and a way of communication, the server will send a filei
 
 ### Flags
 
-- `-server` (bool) - if true - creates a server (also need to provide a `-sharefile` flag in that case), if false - creates a client 
-- `-port` (int) - specifies a port; if `-server` == true - listens on that port, else - connects to given port
-- `addr` (string) - specifies an address to connect to (used when `-server=false`)
-- `-sharefile` (string) - specifies path to a file you want to share (used in pair with `-server=true`), if given a valid path - a server will offer to share this file to a client
+- `-sending` (bool) - if true - creates a server (sender) (also need to provide a `-sharefile` flag in that case), if false - creates a client (receiver) 
+- `-port` (int) - specifies a port; if `-sending` == true - listens on that port, else - connects to given port
+- `addr` (string) - specifies an address to connect to (used when `-sending=false`)
+- `-sharefile` (string) - specifies path to a file you want to share (used in pair with `-sending=true`), if given a valid path - a server will offer to share this file to a client
 - `-downloadto` (string) - specifies path to a folder where the client wants to store downloaded file
 
 ### Examples
 
-- `./FTU -server=true -sharefile="/home/some_path_here/FILETOSHARE.zip"` - creates a server that will share `FILETOSHARE.zip` on port `8080`
-- `./FTU -server=true -sharefile="/home/some_path_here/FILETOSHARE.zip" - port=727` - same as before, but on port `727`
-- `./FTU -server=false -downloadto="/home/some_path_here/Downloads/" -addr="localhost"` - creates a client that will try to connect to `localhost` on port `8080` and if successful - downloads a file to given path
-- `./FTU -server=false -downloadto="/home/some_path_here/Downloads/" -addr=145.125.53.212 -port=8888` - same as before, but will try to connect to `145.125.53.212` on port `8888`
+- `./FTU -sending=true -sharefile="/home/some_path_here/FILETOSHARE.zip"` - creates a server that will share `FILETOSHARE.zip` on port `8080`
+- `./FTU -sending=true -sharefile="/home/some_path_here/FILETOSHARE.zip" - port=727` - same as before, but on port `727`
+- `./FTU -sending=false -downloadto="/home/some_path_here/Downloads/" -addr="localhost"` - creates a client that will try to connect to `localhost` on port `8080` and if successful - downloads a file to given path
+- `./FTU -sending=false -downloadto="/home/some_path_here/Downloads/" -addr=145.125.53.212 -port=8888` - same as before, but will try to connect to `145.125.53.212` on port `8888`
 
 
 ---
@@ -54,7 +54,7 @@ Thus, with a connection and a way of communication, the server will send a filei
 - If `MAXFILEDATASIZE` is bigger than appr. 1024 - the packets on the other end will not be unmarshalled due to error ??; FIXED - [ ]
 - Lack of proper error-handling; somewhat FIXED - [x]
 - Lack of information about the process of transferring (ETA, lost packets, etc.); FIXED - [ ]
-- No way to verify if the transferred file is not corrupted; FIXED - [ ]
+- No way to verify if the transferred file is not corrupted; FIXED via checksum- [x]
 - No encryption; FIXED - [ ] 
 
 ## Good points

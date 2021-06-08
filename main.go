@@ -6,28 +6,28 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Unbewohnte/FTU/client"
-	"github.com/Unbewohnte/FTU/server"
+	"github.com/Unbewohnte/FTU/receiver"
+	"github.com/Unbewohnte/FTU/sender"
 )
 
 // flags
-var PORT *int = flag.Int("port", 8080, "Specifies a port for a server")
-var SERVERADDR *string = flag.String("addr", "", "Specifies an IP for connection")
-var ISSERVER *bool = flag.Bool("server", false, "Server or a client")
-var DOWNLOADSFOLDER *string = flag.String("downloadto", "", "Specifies where the client will store downloaded file")
-var SHAREDFILE *string = flag.String("sharefile", "", "Specifies what file server will serve")
+var PORT *int = flag.Int("port", 8080, "Specifies a port for a sender")
+var SENDERADDR *string = flag.String("addr", "", "Specifies an IP for connection")
+var SENDING *bool = flag.Bool("sending", false, "Send or receive")
+var DOWNLOADSFOLDER *string = flag.String("downloadto", "", "Specifies where the receiver will store downloaded file")
+var SHAREDFILE *string = flag.String("sharefile", "", "Specifies what file sender will send")
 
 // helpMessage
 var HELPMSG string = `
-"-port", default: 8080, Specifies a port for a server
+"-port", default: 8080, Specifies a port for a sender
 "-addr", default: "", Specifies an IP for connection
-"-server", default: false, Share file or connect and receive one ?
-"-downloadto", default: "", Specifies where the client will store downloaded file
-"-sharefile", default: "", Specifies what file server will share`
+"-sending", default: false, Send or receive
+"-downloadto", default: "", Specifies where the receiver will store downloaded file
+"-sharefile", default: "", Specifies what file sender will send`
 
 // Input-validation
 func checkFlags() {
-	if *ISSERVER {
+	if *SENDING {
 		if strings.TrimSpace(*SHAREDFILE) == "" {
 			fmt.Println("No file specified !\n", HELPMSG)
 			os.Exit(1)
@@ -36,8 +36,8 @@ func checkFlags() {
 			fmt.Println("Invalid port !\n", HELPMSG)
 			os.Exit(1)
 		}
-	} else if !*ISSERVER {
-		if strings.TrimSpace(*SERVERADDR) == "" {
+	} else if !*SENDING {
+		if strings.TrimSpace(*SENDERADDR) == "" {
 			fmt.Println("Invalid IP address !\n", HELPMSG)
 			os.Exit(1)
 		}
@@ -55,18 +55,18 @@ func init() {
 }
 
 func main() {
-	if *ISSERVER {
-		// 1) create server -> 2) wait for a client ->|
-		// 3) send handshake packet -> 4) if accepted - upload file
-		server := server.NewServer(*PORT, *SHAREDFILE)
-		server.WaitForConnection()
-		server.MainLoop()
+	if *SENDING {
+		// 1) create sender -> 2) wait for a connection ->|
+		// 3) send fileinfo packet -> 4) if accepted - upload file
+		sender := sender.NewSender(*PORT, *SHAREDFILE)
+		sender.WaitForConnection()
+		sender.MainLoop()
 
 	} else {
-		// 1) create client -> 2) try to connect to a server -> 3) wait for a handshake ->|
+		// 1) create receiver -> 2) try to connect to a sender -> 3) wait for a fileinfo packet ->|
 		// 4) accept or refuse -> 5) download|don`t_download file
-		client := client.NewClient(*DOWNLOADSFOLDER)
-		client.Connect(fmt.Sprintf("%s:%d", *SERVERADDR, *PORT))
-		client.MainLoop()
+		receiver := receiver.NewReceiver(*DOWNLOADSFOLDER)
+		receiver.Connect(fmt.Sprintf("%s:%d", *SENDERADDR, *PORT))
+		receiver.MainLoop()
 	}
 }
