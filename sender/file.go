@@ -9,14 +9,13 @@ import (
 
 // Struct that represents the served file. Used internally in the sender
 type File struct {
-	path        string
-	Filename    string
-	Filesize    uint64
-	SentBytes   uint64
-	LeftBytes   uint64
-	SentPackets uint64
-	Handler     *os.File
-	CheckSum    checksum.CheckSum
+	path      string
+	Filename  string
+	Filesize  uint64
+	SentBytes uint64
+	LeftBytes uint64
+	Handler   *os.File
+	CheckSum  checksum.CheckSum
 }
 
 // Prepares a file for serving. Used for preparing info before sending a fileinfo packet by sender

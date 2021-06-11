@@ -21,9 +21,9 @@ In order to establish a connection - there needs to be a 1) sender (server) (the
  
 The server and the client needs to communicate with packets according to certain rules, given by a [protocol](https://github.com/Unbewohnte/FTU/tree/main/protocol).
 
-In my implementation there is only one basic packet template with fixed fields. The packets are divided into several groups by its headers, this way my basic packet`s template can be used in many ways, without need of creating a brand-new packet with a different kind of a template.
+The packet has its header and body. They are divided into several groups of use by headers, this way we can specify what kind of data is stored inside packet`s body and react accordingly.
 
-Thus, with a connection and a way of communication, the server will send a fileinfo packet to a client that describes a filename and its size. The client will have the choice of accepting or rejecting the packet. If rejected - the connection will be closed and the program will exit. If accepted - the file will be transferred via packets. 
+Thus, with a connection and a way of communication, the sender will send some packets with necessary information about the file to the receiver that describe a filename, its size and a checksum. The client (receiver) will have the choice of accepting or rejecting the packet. If rejected - the connection will be closed and the program will exit. If accepted - the file will be transferred via packets. 
 
 ---
 
@@ -42,23 +42,27 @@ Thus, with a connection and a way of communication, the server will send a filei
 
 - `./FTU -sending=true -sharefile="/home/some_path_here/FILETOSHARE.zip"` - creates a server that will share `FILETOSHARE.zip` on port `8080`
 - `./FTU -sending=true -sharefile="/home/some_path_here/FILETOSHARE.zip" - port=727` - same as before, but on port `727`
-- `./FTU -sending=false -downloadto="/home/some_path_here/Downloads/" -addr="localhost"` - creates a client that will try to connect to `localhost` on port `8080` and if successful - downloads a file to given path
+- `./FTU -sending=false -downloadto="/home/some_path_here/Downloads/" -addr="192.168.1.104"` - creates a client (receiver) that will try to connect to `192.168.1.104` (local device) on port `8080` and if successful - downloads a file to given path
 - `./FTU -sending=false -downloadto="/home/some_path_here/Downloads/" -addr=145.125.53.212 -port=8888` - same as before, but will try to connect to `145.125.53.212` on port `8888`
 
 
 ---
 
 ## Known issues|problems|lack of features|reasons why it`s bad
-- **VERY** slow; FIXED - [ ]   
-- **VERY** expensive on resources; FIXED - [ ]
-- If `MAXFILEDATASIZE` is bigger than appr. 1024 - the packets on the other end will not be unmarshalled due to error ??; FIXED - [ ]
+- **VERY** slow; somewhat FIXED - [x], now **a little** faster than before   
+- **VERY** expensive on resources; somewhat FIXED - [x], no more **json manipulations**, only **raw bytes**`s wizardry ! 
+- If `MAXFILEDATASIZE` is bigger than appr. 1024 - the packets on the other end will not be unmarshalled due to error ??; FIXED - [x], unnecessary, wrong, deprecated, **destroyed !!!** (But now present in the other form, unfortunately)
 - Lack of proper error-handling; somewhat FIXED - [x]
 - Lack of information about the process of transferring (ETA, lost packets, etc.); FIXED - [ ]
 - No way to verify if the transferred file is not corrupted; FIXED via checksum- [x]
 - No encryption; FIXED - [ ] 
+- Messy and hard to follow code && file structure; partially FIXED (protocol is looking fairly good rn) - [ X ]
+- Lack of downloads` management; FIXED - [ ]
+- No way to stop the download/upload and resume it later or even during the next connection; FIXED - [ ] 
+- No tests; FIXED - [ ]
 
 ## Good points
-- It... works ?
+- It works.
 
 ---
 

@@ -6,7 +6,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 
+	"github.com/Unbewohnte/FTU/checksum"
 	"github.com/Unbewohnte/FTU/protocol"
 )
 
@@ -39,13 +41,15 @@ func GetRemoteIP() (string, error) {
 
 // The main sender struct
 type Sender struct {
-	Port            int
-	FileToTransfer  *File
-	Listener        net.Listener
-	Connection      net.Conn
-	IncomingPackets chan protocol.Packet
-	CanTransfer     bool
-	Stopped         bool
+	Port                 int
+	FileToTransfer       *File
+	Listener             net.Listener
+	Connection           net.Conn
+	IncomingPackets      chan protocol.Packet
+	SentFileBytesPackets uint64
+	TransferAllowed      bool
+	ReceiverIsReady      bool
+	Stopped              bool
 }
 
 // Creates a new sender with default fields
@@ -59,7 +63,7 @@ func NewSender(port int, filepath string) *Sender {
 	if err != nil {
 		panic(err)
 	}
-	incomingPacketsChan := make(chan protocol.Packet, 5)
+	incomingPacketsChan := make(chan protocol.Packet, 5000)
 
 	remoteIP, err := GetRemoteIP()
 	if err != nil {
@@ -70,14 +74,18 @@ func NewSender(port int, filepath string) *Sender {
 		panic(err)
 	}
 
+	var filepacketCounter uint64
 	fmt.Printf("Created a new sender at %s:%d (remote)\n%s:%d (local)\n", remoteIP, port, localIP, port)
 	return &Sender{
-		Port:            port,
-		FileToTransfer:  fileToTransfer,
-		Listener:        listener,
-		Connection:      nil,
-		IncomingPackets: incomingPacketsChan,
-		Stopped:         false,
+		Port:                 port,
+		FileToTransfer:       fileToTransfer,
+		Listener:             listener,
+		Connection:           nil,
+		IncomingPackets:      incomingPacketsChan,
+		SentFileBytesPackets: filepacketCounter,
+		TransferAllowed:      false,
+		ReceiverIsReady:      false,
+		Stopped:              false,
 	}
 }
 
@@ -116,33 +124,71 @@ func (s *Sender) StopListening() {
 	s.Listener.Close()
 }
 
-// Sends a packet with all information about a file to current connection
+// Sends multiple packets with all information about the file to receiver
+// (filename, filesize, checksum)
 func (s *Sender) SendOffer() error {
-	err := protocol.SendPacket(s.Connection, protocol.Packet{
-		Header:       protocol.HeaderFileInfo,
-		Filename:     s.FileToTransfer.Filename,
-		Filesize:     s.FileToTransfer.Filesize,
-		FileCheckSum: s.FileToTransfer.CheckSum,
-	})
+	// filename
+	filenamePacket := protocol.Packet{
+		Header: protocol.HeaderFilename,
+		Body:   []byte(s.FileToTransfer.Filename),
+	}
+	err := protocol.SendPacket(s.Connection, filenamePacket)
 	if err != nil {
 		return fmt.Errorf("could not send an information about the file: %s", err)
 	}
 
+	// filesize
+	filesizePacket := protocol.Packet{
+		Header: protocol.HeaderFileSize,
+		Body:   []byte(strconv.Itoa(int(s.FileToTransfer.Filesize))),
+	}
+
+	err = protocol.SendPacket(s.Connection, filesizePacket)
+	if err != nil {
+		return fmt.Errorf("could not send an information about the file: %s", err)
+	}
+
+	// checksum
+	checksumPacket := protocol.Packet{
+		Header: protocol.HeaderChecksum,
+		Body:   checksum.ChecksumToBytes(s.FileToTransfer.CheckSum),
+	}
+	err = protocol.SendPacket(s.Connection, checksumPacket)
+	if err != nil {
+		return fmt.Errorf("could not send an information about the file: %s", err)
+	}
+
+	// indicate that we`ve sent everything we needed to send
+	donePacket := protocol.Packet{
+		Header: protocol.HeaderDone,
+	}
+	err = protocol.SendPacket(s.Connection, donePacket)
+	if err != nil {
+		return fmt.Errorf("could not send an information about the file: %s", err)
+	}
 	return nil
 }
 
-// Sends one file packet to the receiver
+// Sends one packet that contains a piece of file to the receiver
 func (s *Sender) SendPiece() error {
 	// if no data to send - exit
 	if s.FileToTransfer.LeftBytes == 0 {
-		fmt.Printf("Done. Sent %d file packets\n", s.FileToTransfer.SentPackets)
+		fmt.Printf("Done. Sent %d file packets\n", s.SentFileBytesPackets)
 		s.Stop()
 	}
 
-	fileBytes := make([]byte, protocol.MAXFILEDATASIZE)
+	// empty body
+	fileBytesPacket := protocol.Packet{
+		Header: protocol.HeaderFileBytes,
+	}
+
+	// how many bytes we can send at maximum
+	maxFileBytes := protocol.MAXPACKETSIZE - uint(protocol.MeasurePacketSize(fileBytesPacket))
+
+	fileBytes := make([]byte, maxFileBytes)
 	// if there is less data to send than the limit - create a buffer of needed size
-	if s.FileToTransfer.LeftBytes < uint64(protocol.MAXFILEDATASIZE) {
-		fileBytes = make([]byte, protocol.MAXFILEDATASIZE-(protocol.MAXFILEDATASIZE-int(s.FileToTransfer.LeftBytes)))
+	if s.FileToTransfer.LeftBytes < uint64(maxFileBytes) {
+		fileBytes = make([]byte, uint64(maxFileBytes)-(uint64(maxFileBytes)-s.FileToTransfer.LeftBytes))
 	}
 
 	// reading bytes from the point where we left
@@ -151,15 +197,10 @@ func (s *Sender) SendPiece() error {
 		return fmt.Errorf("could not read from a file: %s", err)
 	}
 
-	// constructing a file packet and sending it
-	fileDataPacket := protocol.Packet{
-		Header:   protocol.HeaderFileData,
-		Filename: s.FileToTransfer.Filename,
-		Filesize: s.FileToTransfer.Filesize,
-		FileData: fileBytes,
-	}
+	// filling BODY with bytes
+	fileBytesPacket.Body = fileBytes
 
-	err = protocol.SendPacket(s.Connection, fileDataPacket)
+	err = protocol.SendPacket(s.Connection, fileBytesPacket)
 	if err != nil {
 		return fmt.Errorf("could not send a file packet : %s", err)
 	}
@@ -167,7 +208,7 @@ func (s *Sender) SendPiece() error {
 	// doing a "logging" for the next time
 	s.FileToTransfer.LeftBytes -= uint64(read)
 	s.FileToTransfer.SentBytes += uint64(read)
-	s.FileToTransfer.SentPackets++
+	s.SentFileBytesPackets++
 
 	return nil
 }
@@ -201,6 +242,15 @@ func (s *Sender) MainLoop() {
 			break
 		}
 
+		if s.TransferAllowed && s.ReceiverIsReady {
+			err := s.SendPiece()
+			if err != nil {
+				fmt.Printf("could not send a piece of file: %s", err)
+				s.Stop()
+			}
+			s.ReceiverIsReady = false
+		}
+
 		// no incoming packets ? Skipping the packet handling part
 		if len(s.IncomingPackets) == 0 {
 			continue
@@ -212,27 +262,18 @@ func (s *Sender) MainLoop() {
 		switch incomingPacket.Header {
 
 		case protocol.HeaderAccept:
-			fmt.Printf("The transfer has been accepted !\n")
 			// allowed to send file packets
-			s.CanTransfer = true
+			s.TransferAllowed = true
+
+		case protocol.HeaderReady:
+			s.ReceiverIsReady = true
 
 		case protocol.HeaderReject:
-			fmt.Println("Transfer has been rejected")
 			s.Stop()
-
-		// receiver is ready to receive the next file packet, sending...
-		case protocol.HeaderReady:
-			if !s.CanTransfer {
-				break
-			}
-			err := s.SendPiece()
-			if err != nil {
-				fmt.Printf("could not send a piece of file: %s", err)
-				os.Exit(-1)
-			}
 
 		case protocol.HeaderDisconnecting:
 			// receiver is dropping the file transfer ?
+			fmt.Println("Receiver has disconnected")
 			s.Stop()
 		}
 	}
