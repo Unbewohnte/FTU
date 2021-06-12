@@ -118,10 +118,25 @@ func ReadFromConn(connection net.Conn) (Packet, error) {
 	}
 
 	// have a packetsize, now reading the whole packet
-	packetBuff := make([]byte, packetSize)
-	connection.Read(packetBuff)
+	packetBytes := new(bytes.Buffer)
 
-	packet := BytesToPacket(packetBuff)
+	left := packetSize
+	for {
+		if left == 0 {
+			break
+		}
+		buff := make([]byte, 1024)
+		if left < len(buff) {
+			buff = make([]byte, left)
+		}
+
+		r, _ := connection.Read(buff)
+		left -= r
+
+		packetBytes.Write(buff[:r])
+	}
+
+	packet := BytesToPacket(packetBytes.Bytes())
 
 	return packet, nil
 }

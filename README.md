@@ -49,15 +49,14 @@ Thus, with a connection and a way of communication, the sender will send some pa
 ---
 
 ## Known issues|problems|lack of features|reasons why it`s bad
-- **VERY** slow; somewhat FIXED - [x], now **a little** faster than before   
+- **VERY** slow; somewhat FIXED - [x], now **faster** than before   
 - **VERY** expensive on resources; somewhat FIXED - [x], no more **json manipulations**, only **raw bytes**`s wizardry ! 
-- If `MAXFILEDATASIZE` is bigger than appr. 1024 - the packets on the other end will not be unmarshalled due to error ??; FIXED - [x], unnecessary, wrong, deprecated, **destroyed !!!** (But now present in the other form, unfortunately)
+- If `MAXFILEDATASIZE` is bigger than appr. 1024 - the packets on the other end will not be unmarshalled due to error ??; FIXED - [x], unnecessary, wrong, deprecated, **destroyed !!!**
 - Lack of proper error-handling; somewhat FIXED - [x]
 - Lack of information about the process of transferring (ETA, lost packets, etc.); FIXED - [ ]
 - No way to verify if the transferred file is not corrupted; FIXED via checksum- [x]
 - No encryption; FIXED - [ ] 
 - Messy and hard to follow code && file structure; partially FIXED (protocol is looking fairly good rn) - [ X ]
-- Lack of downloads` management; FIXED - [ ]
 - No way to stop the download/upload and resume it later or even during the next connection; FIXED - [ ] 
 - No tests; FIXED - [ ]
 

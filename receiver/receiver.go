@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Unbewohnte/FTU/checksum"
 	"github.com/Unbewohnte/FTU/protocol"
@@ -118,10 +119,35 @@ func (r *Receiver) HandleFileOffer() error {
 	}
 	// accept the file
 
+	// check if the file with the same name is present
+	doesExist, err := r.CheckIfFileAlreadyExists()
+	if err != nil {
+		return fmt.Errorf("could not check if the file with the same name alredy exists: %s", err)
+	}
+
+	if doesExist {
+		fmt.Printf(`
+ | Looks like that there is a file with the same name in your downloads directory, do you want to overwrite it ? [Y/N]: `)
+
+		fmt.Scanln(&input)
+		input = strings.TrimSpace(input)
+		input = strings.ToLower(input)
+
+		if input == "y" {
+			err = os.Remove(filepath.Join(r.DownloadsFolder, r.FileToDownload.Filename))
+			if err != nil {
+				return fmt.Errorf("could not remove the file: %s", err)
+			}
+		} else {
+			// user did not agree to overwrite, adding checksum to the name
+			r.FileToDownload.Filename = fmt.Sprint(time.Now().Unix()) + r.FileToDownload.Filename
+		}
+	}
+
 	acceptancePacket := protocol.Packet{
 		Header: protocol.HeaderAccept,
 	}
-	err := protocol.SendPacket(r.Connection, acceptancePacket)
+	err = protocol.SendPacket(r.Connection, acceptancePacket)
 	if err != nil {
 		return fmt.Errorf("could not send an acceptance packet: %s", err)
 	}
@@ -180,7 +206,11 @@ func (r *Receiver) MainLoop() {
 			readyPacket := protocol.Packet{
 				Header: protocol.HeaderReady,
 			}
-			protocol.SendPacket(r.Connection, readyPacket)
+			err := protocol.SendPacket(r.Connection, readyPacket)
+			if err != nil {
+				fmt.Printf("Could not send the packet: %s\nExiting...", err)
+				r.Stop()
+			}
 
 			r.ReadyToReceive = false
 		}
@@ -216,12 +246,23 @@ func (r *Receiver) MainLoop() {
 
 		case protocol.HeaderDone:
 			if r.FileToDownload.Filename != "" && r.FileToDownload.Filesize != 0 && r.FileToDownload.CheckSum != [32]byte{} {
-				r.HandleFileOffer()
+				err := r.HandleFileOffer()
+				if err != nil {
+					fmt.Printf("Could not handle a file download confirmation: %s\nExiting...", err)
+					r.Stop()
+				}
 				r.ReadyToReceive = true
+			} else {
+				fmt.Println("Not enough data about the file was sent. Exiting...")
+				r.Stop()
 			}
 
 		case protocol.HeaderFileBytes:
-			r.WritePieceOfFile(incomingPacket)
+			err := r.WritePieceOfFile(incomingPacket)
+			if err != nil {
+				fmt.Printf("Could not write a piece of file: %s\nExiting...", err)
+				r.Stop()
+			}
 			r.ReadyToReceive = true
 
 		case protocol.HeaderDisconnecting:

@@ -4,10 +4,7 @@ package protocol
 // MAXPACKETSIZE.
 // How many bytes can contain one packet (header + body) at maximum
 // (packets with size bigger than MAXPACKETSIZE are invalid and will not be sent)
-const MAXPACKETSIZE uint = 1024 // the same problem as in the previous versions: if the packet is big enough - the conn.Read()
-// will result in some sort of error where it does not read the intended amount of bytes (less, in fact),
-// which is strange, but I guess that
-// I just do something wrong in my code
+const MAXPACKETSIZE uint = 10240 // 10 kilobytes
 
 // PACKETSIZEDELIMETER.
 // Character that delimits one and the other sides of the next incoming packet.
