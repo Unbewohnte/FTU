@@ -4,7 +4,7 @@ package protocol
 // MAXPACKETSIZE.
 // How many bytes can contain one packet (header + body) at maximum
 // (packets with size bigger than MAXPACKETSIZE are invalid and will not be sent)
-const MAXPACKETSIZE uint = 10240 // 10 kilobytes
+const MAXPACKETSIZE uint = 51200 // 50 kilobytes
 
 // PACKETSIZEDELIMETER.
 // Character that delimits one and the other sides of the next incoming packet.

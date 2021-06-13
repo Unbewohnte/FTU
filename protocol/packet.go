@@ -118,8 +118,9 @@ func ReadFromConn(connection net.Conn) (Packet, error) {
 	}
 
 	// have a packetsize, now reading the whole packet
-	packetBytes := new(bytes.Buffer)
+	packetBuffer := new(bytes.Buffer)
 
+	// splitting big-sized packet into chunks and constructing it from pieces
 	left := packetSize
 	for {
 		if left == 0 {
@@ -130,13 +131,13 @@ func ReadFromConn(connection net.Conn) (Packet, error) {
 			buff = make([]byte, left)
 		}
 
-		r, _ := connection.Read(buff)
-		left -= r
+		read, _ := connection.Read(buff)
+		left -= read
 
-		packetBytes.Write(buff[:r])
+		packetBuffer.Write(buff[:read])
 	}
 
-	packet := BytesToPacket(packetBytes.Bytes())
+	packet := BytesToPacket(packetBuffer.Bytes())
 
 	return packet, nil
 }

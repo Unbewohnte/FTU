@@ -234,12 +234,14 @@ func (s *Sender) MainLoop() {
 
 		case protocol.HeaderAccept:
 			// allowed to send file packets
+			fmt.Println("The transfer has been accepted !")
 			s.TransferAllowed = true
 
 		case protocol.HeaderReady:
 			s.ReceiverIsReady = true
 
 		case protocol.HeaderReject:
+			fmt.Println("The transfer has been rejected")
 			s.Stop()
 
 		case protocol.HeaderDisconnecting:
