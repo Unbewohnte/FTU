@@ -45,6 +45,23 @@ Thus, with a connection and a way of communication, the sender will send some pa
 
 ---
 
+## Installation
+
+### From release (Pre-compiled)
+- Proceed to [releases page](https://github.com/Unbewohnte/FTU/releases)
+- Choose a version/architecture you have and download an archive
+- Unpack an archive
+
+### From source (Compile it yourself) (You need [Go](https://golang.org/dl/) and [git](https://git-scm.com/) to be installed on your machine)
+- `git clone https://github.com/Unbewohnte/FTU.git`
+- `cd` into the folder
+- `go build` - to simply compile for your OS/ARCHITECTURE || `CGO_ENABLED=0 GOOS=os_here GOARCH=arch_here go build` - to cross-compile a static executable for the OS/ARCHITECTURE of your choice (`go tool dist list` - to view the available ones)
+
+### After installation
+- You probably want to put the executable in some folder and in order not to use it directly from there all the time - add it to the **$PATH** variable
+
+---
+
 ## Usage
 `./FTU [FLAGS_HERE]` or `FTU [FLAGS_HERE]`
 
