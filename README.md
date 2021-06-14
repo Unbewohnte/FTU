@@ -27,26 +27,6 @@ Thus, with a connection and a way of communication, the sender will send some pa
 
 ---
 
-## Usage
-`./FTU [FLAGS_HERE]` or `FTU [FLAGS_HERE]`
-
-### Flags
-
-- `-sending` (bool) - if true - creates a server (sender) (also need to provide a `-sharefile` flag in that case), if false - creates a client (receiver) 
-- `-port` (int) - specifies a port; if `-sending` == true - listens on that port, else - connects to given port
-- `addr` (string) - specifies an address to connect to (used when `-sending=false`)
-- `-sharefile` (string) - specifies path to a file you want to share (used in pair with `-sending=true`), if given a valid path - a server will offer to share this file to a client
-- `-downloadto` (string) - specifies path to a folder where the client wants to store downloaded file
-
-### Examples
-
-- `./FTU -sending=true -sharefile="/home/some_path_here/FILETOSHARE.zip"` - creates a server that will share `FILETOSHARE.zip` on port `8080`
-- `./FTU -sending=true -sharefile="/home/some_path_here/FILETOSHARE.zip" - port=727` - same as before, but on port `727`
-- `./FTU -sending=false -downloadto="/home/some_path_here/Downloads/" -addr="192.168.1.104"` - creates a client (receiver) that will try to connect to `192.168.1.104` (local device) on port `8080` and if successful - downloads a file to given path
-- `./FTU -sending=false -downloadto="/home/some_path_here/Downloads/" -addr=145.125.53.212 -port=8888` - same as before, but will try to connect to `145.125.53.212` on port `8888`
-
-
----
 
 ## Known issues|problems|lack of features|reasons why it`s bad
 - **VERY** slow; somewhat FIXED - [x], now **faster** than before   
@@ -56,7 +36,7 @@ Thus, with a connection and a way of communication, the sender will send some pa
 - Lack of information about the process of transferring (ETA, lost packets, etc.); FIXED - [ ]
 - No way to verify if the transferred file is not corrupted; FIXED via checksum- [x]
 - No encryption; FIXED - [ ] 
-- Messy and hard to follow code && file structure; partially FIXED (protocol is looking fairly good rn) - [ X ]
+- Messy and hard to follow code && file structure; FIXED? - [x]
 - No way to stop the download/upload and resume it later or even during the next connection; FIXED - [ ] 
 - No tests; FIXED - [ ]
 
@@ -65,10 +45,30 @@ Thus, with a connection and a way of communication, the sender will send some pa
 
 ---
 
+## Usage
+`./FTU [FLAGS_HERE]` or `FTU [FLAGS_HERE]`
+
+### Flags
+ 
+- `-port` (int) - specifies a working port (if sending - listens on this port, else - tries to connect to this port);
+- `addr` (string) - specifies an address to connect to;
+- `-sharefile` (string) - specifies path to a file you want to share, if given a valid path - sender will offer to download this file to receiver;
+- `-downloadto` (string) - specifies path to a folder where the receiver wants to store downloaded file;
+
+### Examples
+
+- `./FTU -sharefile="/home/some_path_here/FILETOSHARE.zip"` - creates a server that will share `FILETOSHARE.zip` on port `8080`
+- `./FTU -sharefile="/home/some_path_here/FILETOSHARE.zip" - port=727` - same as before, but on port `727`
+- `./FTU -downloadto="/home/some_path_here/Downloads/" -addr="192.168.1.104"` - creates a client (receiver) that will try to connect to `192.168.1.104` (local device) on port `8080` and if successful - downloads a file to given path
+- `./FTU -downloadto="/home/some_path_here/Downloads/" -addr=145.125.53.212 -port=8888` - same as before, but will try to connect to `145.125.53.212` on port `8888`
+
+
+---
+
 ## IMPORTANT NOTE
 This is NOT intended to be a serious application. I'm learning and this is a product of my curiosity. If you're a beginner too, please don't try to find something useful in my code, I am not an expert.
 
-Also, this utility only works if both the server and the client have a port-forwarding enabled and configured. Fortunatelly, locally it works without any port-forwarding.
+Also, this utility only works if both the server and the client have a port-forwarding|virtual server enabled and configured. Fortunatelly, locally it works without any port-forwarding|virtual servers.
 
 ---
 
