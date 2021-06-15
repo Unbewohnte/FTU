@@ -35,7 +35,7 @@ Thus, with a connection and a way of communication, the sender will send some pa
 - Lack of proper error-handling; somewhat FIXED - [x]
 - Lack of information about the process of transferring (ETA, lost packets, etc.); FIXED - [ ]
 - No way to verify if the transferred file is not corrupted; FIXED via checksum- [x]
-- No encryption; FIXED - [ ] 
+- No encryption; FIXED via AES encryption of packets` body - [x] 
 - Messy and hard to follow code && file structure; FIXED? - [x]
 - No way to stop the download/upload and resume it later or even during the next connection; FIXED - [ ] 
 - No tests; FIXED - [ ]
@@ -66,9 +66,10 @@ Thus, with a connection and a way of communication, the sender will send some pa
 `./FTU [FLAGS_HERE]` or `FTU [FLAGS_HERE]`
 
 ### Flags
- 
+`./FTU --help` - to get all flags` description
+
 - `-port` (int) - specifies a working port (if sending - listens on this port, else - tries to connect to this port);
-- `addr` (string) - specifies an address to connect to;
+- `-addr` (string) - specifies an address to connect to;
 - `-sharefile` (string) - specifies path to a file you want to share, if given a valid path - sender will offer to download this file to receiver;
 - `-downloadto` (string) - specifies path to a folder where the receiver wants to store downloaded file;
 

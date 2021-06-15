@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+
+	"github.com/Unbewohnte/FTU/encryption"
 )
 
 // Internal representation of packet before|after the transportation
@@ -56,7 +58,7 @@ func SendPacket(connection net.Conn, packetToSend Packet) error {
 	packetSize := MeasurePacketSize(packetToSend)
 
 	if packetSize > uint64(MAXPACKETSIZE) {
-		return fmt.Errorf("invalid packet: HEADER: %s BODY: %s: EXCEEDED MAX PACKETSIZE", packetToSend.Header, packetToSend.Body)
+		return fmt.Errorf("invalid packet!: EXCEEDED MAX PACKETSIZE")
 	}
 
 	// packetsize between delimeters (ie: |17|)
@@ -83,9 +85,28 @@ func SendPacket(connection net.Conn, packetToSend Packet) error {
 	return nil
 }
 
-// Reads a packet from given connection.
+// Sends given packet to connection, as the normal `SendPacket` method, but
+// encodes given packet`s BODY with AES encryption
+func SendEncryptedPacket(connection net.Conn, packetToSend Packet, key []byte) error {
+	// encrypting packet`s body
+	encryptedBody, err := encryption.Encrypt(key, packetToSend.Body)
+	if err != nil {
+		return fmt.Errorf("could not encrypt packet`s body: %s", err)
+	}
+	packetToSend.Body = encryptedBody
+
+	// sending the encrypted packet
+	err = SendPacket(connection, packetToSend)
+	if err != nil {
+		return fmt.Errorf("could not send packet: %s", err)
+	}
+
+	return nil
+}
+
+// Reads a packet from given connection, returns its bytes.
 // ASSUMING THAT THE PACKETS ARE SENT BY `SendPacket` function !!!!
-func ReadFromConn(connection net.Conn) (Packet, error) {
+func ReadFromConn(connection net.Conn) ([]byte, error) {
 	var err error
 	var delimeterCounter int = 0
 	var packetSizeStrBuffer string = ""
@@ -114,7 +135,7 @@ func ReadFromConn(connection net.Conn) (Packet, error) {
 
 	packetSize, err = strconv.Atoi(packetSizeStrBuffer)
 	if err != nil {
-		return Packet{}, fmt.Errorf("could not convert packetsizeStr into int: %s", err)
+		return nil, fmt.Errorf("could not convert packetsizeStr into int: %s", err)
 	}
 
 	// have a packetsize, now reading the whole packet
@@ -137,7 +158,5 @@ func ReadFromConn(connection net.Conn) (Packet, error) {
 		packetBuffer.Write(buff[:read])
 	}
 
-	packet := BytesToPacket(packetBuffer.Bytes())
-
-	return packet, nil
+	return packetBuffer.Bytes(), nil
 }

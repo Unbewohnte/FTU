@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Unbewohnte/FTU/checksum"
+	"github.com/Unbewohnte/FTU/encryption"
 	"github.com/Unbewohnte/FTU/protocol"
 )
 
@@ -19,6 +20,7 @@ type Receiver struct {
 	Connection             net.Conn
 	IncomingPackets        chan protocol.Packet
 	FileToDownload         *File
+	EncryptionKey          []byte
 	ReadyToReceive         bool
 	Stopped                bool
 	FileBytesPacketCounter uint64
@@ -64,7 +66,7 @@ func (r *Receiver) Stop() {
 	disconnectionPacket := protocol.Packet{
 		Header: protocol.HeaderDisconnecting,
 	}
-	protocol.SendPacket(r.Connection, disconnectionPacket)
+	protocol.SendEncryptedPacket(r.Connection, disconnectionPacket, r.EncryptionKey)
 	r.Stopped = true
 	r.Disconnect()
 }
@@ -110,7 +112,7 @@ func (r *Receiver) HandleFileOffer() error {
 		rejectionPacket := protocol.Packet{
 			Header: protocol.HeaderReject,
 		}
-		err := protocol.SendPacket(r.Connection, rejectionPacket)
+		err := protocol.SendEncryptedPacket(r.Connection, rejectionPacket, r.EncryptionKey)
 		if err != nil {
 			return fmt.Errorf("could not send a rejection packet: %s", err)
 		}
@@ -147,7 +149,7 @@ func (r *Receiver) HandleFileOffer() error {
 	acceptancePacket := protocol.Packet{
 		Header: protocol.HeaderAccept,
 	}
-	err = protocol.SendPacket(r.Connection, acceptancePacket)
+	err = protocol.SendEncryptedPacket(r.Connection, acceptancePacket, r.EncryptionKey)
 	if err != nil {
 		return fmt.Errorf("could not send an acceptance packet: %s", err)
 	}
@@ -174,16 +176,33 @@ func (r *Receiver) WritePieceOfFile(filePacket protocol.Packet) error {
 	return nil
 }
 
-// Listens in an endless loop; reads incoming packages and puts them into channel
+// Listens in an endless loop; reads incoming packets, decrypts their BODY and puts into channel
 func (r *Receiver) ReceivePackets() {
 	for {
-		incomingPacket, err := protocol.ReadFromConn(r.Connection)
+		incomingPacketBytes, err := protocol.ReadFromConn(r.Connection)
 		if err != nil {
-			// in current implementation there is no way to receive a working file even if only one packet is missing
 			fmt.Printf("Error reading a packet: %s\nExiting...", err)
 			r.Stop()
 			os.Exit(-1)
 		}
+
+		incomingPacket := protocol.BytesToPacket(incomingPacketBytes)
+
+		// if this is the FIRST packet - it has HeaderEncryptionKey, so no need to decrypt
+		if incomingPacket.Header == protocol.HeaderEncryptionKey {
+			r.IncomingPackets <- incomingPacket
+			continue
+		}
+
+		decryptedBody, err := encryption.Decrypt(r.EncryptionKey, incomingPacket.Body)
+		if err != nil {
+			fmt.Printf("Error decrypring incoming packet`s BODY: %s\nExiting...", err)
+			r.Stop()
+			os.Exit(-1)
+		}
+
+		incomingPacket.Body = decryptedBody
+
 		r.IncomingPackets <- incomingPacket
 	}
 }
@@ -198,7 +217,6 @@ func (r *Receiver) MainLoop() {
 
 	for {
 		if r.Stopped {
-			// exit the mainloop
 			break
 		}
 
@@ -206,7 +224,7 @@ func (r *Receiver) MainLoop() {
 			readyPacket := protocol.Packet{
 				Header: protocol.HeaderReady,
 			}
-			err := protocol.SendPacket(r.Connection, readyPacket)
+			err := protocol.SendEncryptedPacket(r.Connection, readyPacket, r.EncryptionKey)
 			if err != nil {
 				fmt.Printf("Could not send the packet: %s\nExiting...", err)
 				r.Stop()
@@ -224,6 +242,10 @@ func (r *Receiver) MainLoop() {
 
 		// handling each packet header differently
 		switch incomingPacket.Header {
+
+		case protocol.HeaderEncryptionKey:
+			r.EncryptionKey = incomingPacket.Body
+			fmt.Println("Got the encryption key: ", string(incomingPacket.Body))
 
 		case protocol.HeaderFilename:
 			r.FileToDownload.Filename = string(incomingPacket.Body)

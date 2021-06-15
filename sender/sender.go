@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/Unbewohnte/FTU/checksum"
+	"github.com/Unbewohnte/FTU/encryption"
 	"github.com/Unbewohnte/FTU/protocol"
 )
 
@@ -17,13 +18,14 @@ type Sender struct {
 	Listener             net.Listener
 	Connection           net.Conn
 	IncomingPackets      chan protocol.Packet
+	EncryptionKey        []byte
 	SentFileBytesPackets uint64
 	TransferAllowed      bool
 	ReceiverIsReady      bool
 	Stopped              bool
 }
 
-// Creates a new sender with default fields
+// Creates a new sender with default|necessary fields
 func NewSender(port int, filepath string) *Sender {
 	fileToTransfer, err := getFile(filepath)
 	if err != nil {
@@ -45,6 +47,10 @@ func NewSender(port int, filepath string) *Sender {
 		panic(err)
 	}
 
+	// !!!
+	key := encryption.Generate32AESkey()
+	fmt.Printf("GENERATED ENCRYPTION KEY: %s\n", key)
+
 	var filepacketCounter uint64
 	fmt.Printf("Created a new sender at %s:%d (remote)\n%s:%d (local)\n", remoteIP, port, localIP, port)
 	return &Sender{
@@ -54,6 +60,7 @@ func NewSender(port int, filepath string) *Sender {
 		Connection:           nil,
 		IncomingPackets:      incomingPacketsChan,
 		SentFileBytesPackets: filepacketCounter,
+		EncryptionKey:        key,
 		TransferAllowed:      false,
 		ReceiverIsReady:      false,
 		Stopped:              false,
@@ -65,7 +72,7 @@ func (s *Sender) Stop() {
 	disconnectionPacket := protocol.Packet{
 		Header: protocol.HeaderDisconnecting,
 	}
-	err := protocol.SendPacket(s.Connection, disconnectionPacket)
+	err := protocol.SendEncryptedPacket(s.Connection, disconnectionPacket, s.EncryptionKey)
 	if err != nil {
 		panic(fmt.Sprintf("could not send a disconnection packet: %s", err))
 	}
@@ -95,6 +102,21 @@ func (s *Sender) StopListening() {
 	s.Listener.Close()
 }
 
+// Sends generated earlier eas encryption key to receiver
+func (s *Sender) SendEncryptionKey() error {
+
+	keyPacket := protocol.Packet{
+		Header: protocol.HeaderEncryptionKey,
+		Body:   s.EncryptionKey,
+	}
+	err := protocol.SendPacket(s.Connection, keyPacket)
+	if err != nil {
+		return fmt.Errorf("could not send a packet: %s", err)
+	}
+
+	return nil
+}
+
 // Sends multiple packets with all information about the file to receiver
 // (filename, filesize, checksum)
 func (s *Sender) SendOffer() error {
@@ -103,7 +125,7 @@ func (s *Sender) SendOffer() error {
 		Header: protocol.HeaderFilename,
 		Body:   []byte(s.FileToTransfer.Filename),
 	}
-	err := protocol.SendPacket(s.Connection, filenamePacket)
+	err := protocol.SendEncryptedPacket(s.Connection, filenamePacket, s.EncryptionKey)
 	if err != nil {
 		return fmt.Errorf("could not send an information about the file: %s", err)
 	}
@@ -114,7 +136,7 @@ func (s *Sender) SendOffer() error {
 		Body:   []byte(strconv.Itoa(int(s.FileToTransfer.Filesize))),
 	}
 
-	err = protocol.SendPacket(s.Connection, filesizePacket)
+	err = protocol.SendEncryptedPacket(s.Connection, filesizePacket, s.EncryptionKey)
 	if err != nil {
 		return fmt.Errorf("could not send an information about the file: %s", err)
 	}
@@ -124,7 +146,7 @@ func (s *Sender) SendOffer() error {
 		Header: protocol.HeaderChecksum,
 		Body:   checksum.ChecksumToBytes(s.FileToTransfer.CheckSum),
 	}
-	err = protocol.SendPacket(s.Connection, checksumPacket)
+	err = protocol.SendEncryptedPacket(s.Connection, checksumPacket, s.EncryptionKey)
 	if err != nil {
 		return fmt.Errorf("could not send an information about the file: %s", err)
 	}
@@ -133,7 +155,7 @@ func (s *Sender) SendOffer() error {
 	donePacket := protocol.Packet{
 		Header: protocol.HeaderDone,
 	}
-	err = protocol.SendPacket(s.Connection, donePacket)
+	err = protocol.SendEncryptedPacket(s.Connection, donePacket, s.EncryptionKey)
 	if err != nil {
 		return fmt.Errorf("could not send an information about the file: %s", err)
 	}
@@ -153,8 +175,8 @@ func (s *Sender) SendPiece() error {
 		Header: protocol.HeaderFileBytes,
 	}
 
-	// how many bytes we can send at maximum
-	maxFileBytes := protocol.MAXPACKETSIZE - uint(protocol.MeasurePacketSize(fileBytesPacket))
+	// how many bytes we can send at maximum (including some little space for padding)
+	maxFileBytes := protocol.MAXPACKETSIZE - (uint(protocol.MeasurePacketSize(fileBytesPacket)) + 90)
 
 	fileBytes := make([]byte, maxFileBytes)
 	// if there is less data to send than the limit - create a buffer of needed size
@@ -171,7 +193,7 @@ func (s *Sender) SendPiece() error {
 	// filling BODY with bytes
 	fileBytesPacket.Body = fileBytes
 
-	err = protocol.SendPacket(s.Connection, fileBytesPacket)
+	err = protocol.SendEncryptedPacket(s.Connection, fileBytesPacket, s.EncryptionKey)
 	if err != nil {
 		return fmt.Errorf("could not send a file packet : %s", err)
 	}
@@ -184,15 +206,27 @@ func (s *Sender) SendPiece() error {
 	return nil
 }
 
-// Listens in an endless loop; reads incoming packages and puts them into channel
+// Listens in an endless loop; reads incoming packets, decrypts their BODY and puts into channel
 func (s *Sender) ReceivePackets() {
 	for {
-		incomingPacket, err := protocol.ReadFromConn(s.Connection)
+		incomingPacketBytes, err := protocol.ReadFromConn(s.Connection)
 		if err != nil {
-			// in current implementation there is no way to receive a working file even if only one packet is missing
 			fmt.Printf("Error reading a packet: %s\nExiting...", err)
+			s.Stop()
 			os.Exit(-1)
 		}
+
+		incomingPacket := protocol.BytesToPacket(incomingPacketBytes)
+
+		decryptedBody, err := encryption.Decrypt(s.EncryptionKey, incomingPacket.Body)
+		if err != nil {
+			fmt.Printf("Error decrypting an incoming packet: %s\nExiting...", err)
+			s.Stop()
+			os.Exit(-1)
+		}
+
+		incomingPacket.Body = decryptedBody
+
 		s.IncomingPackets <- incomingPacket
 	}
 }
@@ -204,12 +238,22 @@ func (s *Sender) MainLoop() {
 
 	go s.ReceivePackets()
 
+	// instantly sending an encryption key, following the protocol`s rule
+	err := s.SendEncryptionKey()
+	if err != nil {
+		fmt.Printf("Could not send an encryption key: %s\nExiting...", err)
+		s.Stop()
+	}
+
 	// send an information about the shared file to the receiver
-	s.SendOffer()
+	err = s.SendOffer()
+	if err != nil {
+		fmt.Printf("Could not send an info about the file: %s\nExiting...", err)
+		s.Stop()
+	}
 
 	for {
 		if s.Stopped {
-			// exit the mainloop
 			break
 		}
 
@@ -237,12 +281,12 @@ func (s *Sender) MainLoop() {
 			fmt.Println("The transfer has been accepted !")
 			s.TransferAllowed = true
 
-		case protocol.HeaderReady:
-			s.ReceiverIsReady = true
-
 		case protocol.HeaderReject:
 			fmt.Println("The transfer has been rejected")
 			s.Stop()
+
+		case protocol.HeaderReady:
+			s.ReceiverIsReady = true
 
 		case protocol.HeaderDisconnecting:
 			// receiver is dropping the file transfer ?

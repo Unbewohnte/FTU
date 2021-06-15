@@ -12,23 +12,16 @@ import (
 
 // flags
 var PORT *int = flag.Int("port", 8080, "Specifies a port for a sender|port to connect to")
-var SENDERADDR *string = flag.String("addr", "", "Specifies an IP for connection")
+var SENDERADDR *string = flag.String("addr", "", "Specifies an address to connect to")
 var DOWNLOADSFOLDER *string = flag.String("downloadto", "", "Specifies where the receiver will store downloaded file")
 var SHAREDFILE *string = flag.String("sharefile", "", "Specifies what file sender will send")
 
 var SENDING bool
 
-// helpMessage
-var HELPMSG string = `
-"-port", default: 8080, Specifies a port for a sender|port to connect to
-"-addr", default: "", Specifies an IP for connection
-"-downloadto", default: "", Specifies where the receiver will store downloaded file
-"-sharefile", default: "", Specifies what file sender will send`
-
 // Input-validation
 func processFlags() {
 	if *PORT < 0 {
-		fmt.Println("Invalid port !\n", HELPMSG)
+		fmt.Println("Invalid port !")
 		os.Exit(-1)
 	}
 
@@ -39,7 +32,7 @@ func processFlags() {
 	// specifying address to connect to -> receiving
 	if strings.TrimSpace(*SENDERADDR) != "" {
 		if SENDING {
-			fmt.Println("Cannot specify an address when sharing !\n", HELPMSG)
+			fmt.Println("Cannot specify an address when sharing !")
 			os.Exit(-1)
 		}
 		SENDING = false
@@ -47,7 +40,7 @@ func processFlags() {
 	// specifying path to download to -> receiving
 	if strings.TrimSpace(*DOWNLOADSFOLDER) != "" {
 		if SENDING {
-			fmt.Println("Cannot specify a downloads directory when sharing !\n", HELPMSG)
+			fmt.Println("Cannot specify a downloads directory when sharing !")
 			os.Exit(-1)
 		}
 		SENDING = false
