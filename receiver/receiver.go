@@ -16,14 +16,14 @@ import (
 
 // Representation of a receiver
 type Receiver struct {
-	DownloadsFolder        string
-	Connection             net.Conn
-	IncomingPackets        chan protocol.Packet
-	FileToDownload         *File
-	EncryptionKey          []byte
-	ReadyToReceive         bool
-	Stopped                bool
-	FileBytesPacketCounter uint64
+	DownloadsFolder string
+	Connection      net.Conn
+	IncomingPackets chan protocol.Packet
+	FileToDownload  *file
+	EncryptionKey   []byte
+	ReadyToReceive  bool
+	Stopped         bool
+	TransferInfo    *transferInfo
 }
 
 // Creates a new client with default fields
@@ -40,7 +40,6 @@ func NewReceiver(downloadsFolder string) *Receiver {
 
 	incomingPacketsChan := make(chan protocol.Packet, 5000)
 
-	var PacketCounter uint64 = 0
 	fmt.Println("Created a new receiver")
 	return &Receiver{
 		DownloadsFolder: downloadsFolder,
@@ -48,11 +47,14 @@ func NewReceiver(downloadsFolder string) *Receiver {
 		IncomingPackets: incomingPacketsChan,
 		Stopped:         false,
 		ReadyToReceive:  false,
-		FileToDownload: &File{
+		FileToDownload: &file{
 			Filename: "",
 			Filesize: 0,
 		},
-		FileBytesPacketCounter: PacketCounter,
+		TransferInfo: &transferInfo{
+			ReceivedFileBytesPackets:       0,
+			ApproximateNumberOfFilePackets: 0,
+		},
 	}
 }
 
@@ -88,7 +90,6 @@ func (r *Receiver) Connect(addr string) error {
 // Handles the input from the user after the sender sent "DOYOUACCEPT?" packet.
 // The choice of acceptance is given to the user
 func (r *Receiver) HandleFileOffer() error {
-
 	// inform the user about the file
 
 	fmt.Printf(`
@@ -122,7 +123,7 @@ func (r *Receiver) HandleFileOffer() error {
 	// accept the file
 
 	// check if the file with the same name is present
-	doesExist, err := r.CheckIfFileAlreadyExists()
+	doesExist, err := r.checkIfFileAlreadyExists()
 	if err != nil {
 		return fmt.Errorf("could not check if the file with the same name alredy exists: %s", err)
 	}
@@ -154,6 +155,8 @@ func (r *Receiver) HandleFileOffer() error {
 		return fmt.Errorf("could not send an acceptance packet: %s", err)
 	}
 
+	r.TransferInfo.ApproximateNumberOfFilePackets = uint64(float32(r.FileToDownload.Filesize) / float32(protocol.MAXPACKETSIZE))
+
 	return nil
 }
 
@@ -171,9 +174,36 @@ func (r *Receiver) WritePieceOfFile(filePacket protocol.Packet) error {
 	// just write the bytes
 	file.Write(filePacket.Body)
 	file.Close()
-	r.FileBytesPacketCounter++
+	r.TransferInfo.ReceivedFileBytesPackets++
 
 	return nil
+}
+
+// Prints a brief information about the state of the transfer
+func (r *Receiver) PrintTransferInfo(pauseDuration time.Duration) {
+	next := time.Now().UTC()
+	for {
+		if r.TransferInfo.ReceivedFileBytesPackets == 0 {
+			time.Sleep(time.Second)
+			continue
+		}
+
+		now := time.Now().UTC()
+
+		if !now.After(next) {
+			continue
+		}
+		next = now.Add(pauseDuration)
+
+		fmt.Printf(`
+ | Received packets/Approximate number of packets
+ | (%d|%d) (%.2f%%/100%%)
+`, r.TransferInfo.ReceivedFileBytesPackets,
+			r.TransferInfo.ApproximateNumberOfFilePackets,
+			float32(r.TransferInfo.ReceivedFileBytesPackets)/float32(r.TransferInfo.ApproximateNumberOfFilePackets)*100)
+
+		time.Sleep(pauseDuration)
+	}
 }
 
 // Listens in an endless loop; reads incoming packets, decrypts their BODY and puts into channel
@@ -212,8 +242,7 @@ func (r *Receiver) ReceivePackets() {
 // in any order and react correspondingly
 func (r *Receiver) MainLoop() {
 	go r.ReceivePackets()
-
-	// r.Stop()
+	go r.PrintTransferInfo(time.Second * 3)
 
 	for {
 		if r.Stopped {
@@ -291,8 +320,8 @@ func (r *Receiver) MainLoop() {
 			// the sender has completed its mission,
 			// checking hashes and exiting
 
-			fmt.Println("Got ", r.FileBytesPacketCounter, " file packets in total")
-			fmt.Println("Checking checksums...")
+			fmt.Println("Got ", r.TransferInfo.ReceivedFileBytesPackets, " file packets in total")
+			fmt.Println("Comparing checksums...")
 
 			file, err := os.Open(filepath.Join(r.DownloadsFolder, r.FileToDownload.Filename))
 			if err != nil {

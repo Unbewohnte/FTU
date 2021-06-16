@@ -8,7 +8,7 @@ import (
 )
 
 // Struct that represents the served file. Used internally in the sender
-type File struct {
+type file struct {
 	path      string
 	Filename  string
 	Filesize  uint64
@@ -19,7 +19,7 @@ type File struct {
 }
 
 // Prepares a file for serving. Used for preparing info before sending a fileinfo packet by sender
-func getFile(path string) (*File, error) {
+func getFile(path string) (*file, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("could not get a fileinfo: %s", err)
@@ -33,7 +33,7 @@ func getFile(path string) (*File, error) {
 		return nil, fmt.Errorf("could not get a partial file checksum: %s", err)
 	}
 
-	return &File{
+	return &file{
 		path:      path,
 		Filename:  info.Name(),
 		Filesize:  uint64(info.Size()),

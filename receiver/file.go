@@ -8,7 +8,7 @@ import (
 )
 
 // Receiver`s file struct. Used internally by receiver
-type File struct {
+type file struct {
 	Filename string
 	Filesize uint64
 	CheckSum checksum.CheckSum
@@ -16,7 +16,7 @@ type File struct {
 
 // Goes through all files in the downloads directory and compares their
 // names with the name of the file that is about to be downloaded
-func (r *Receiver) CheckIfFileAlreadyExists() (bool, error) {
+func (r *Receiver) checkIfFileAlreadyExists() (bool, error) {
 	contents, err := os.ReadDir(r.DownloadsFolder)
 	if err != nil {
 		return false, fmt.Errorf("could not get contents of the downloads` directory: %s", err)

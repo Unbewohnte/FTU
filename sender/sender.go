@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/Unbewohnte/FTU/checksum"
 	"github.com/Unbewohnte/FTU/encryption"
@@ -13,16 +14,16 @@ import (
 
 // The main sender struct
 type Sender struct {
-	Port                 int
-	FileToTransfer       *File
-	Listener             net.Listener
-	Connection           net.Conn
-	IncomingPackets      chan protocol.Packet
-	EncryptionKey        []byte
-	SentFileBytesPackets uint64
-	TransferAllowed      bool
-	ReceiverIsReady      bool
-	Stopped              bool
+	Port            int
+	FileToTransfer  *file
+	Listener        net.Listener
+	Connection      net.Conn
+	IncomingPackets chan protocol.Packet
+	EncryptionKey   []byte
+	TransferInfo    *transferInfo
+	TransferAllowed bool
+	ReceiverIsReady bool
+	Stopped         bool
 }
 
 // Creates a new sender with default|necessary fields
@@ -49,21 +50,23 @@ func NewSender(port int, filepath string) *Sender {
 
 	// !!!
 	key := encryption.Generate32AESkey()
-	fmt.Printf("GENERATED ENCRYPTION KEY: %s\n", key)
+	fmt.Printf("Generated an encryption key: %s\n", key)
 
-	var filepacketCounter uint64
 	fmt.Printf("Created a new sender at %s:%d (remote)\n%s:%d (local)\n", remoteIP, port, localIP, port)
 	return &Sender{
-		Port:                 port,
-		FileToTransfer:       fileToTransfer,
-		Listener:             listener,
-		Connection:           nil,
-		IncomingPackets:      incomingPacketsChan,
-		SentFileBytesPackets: filepacketCounter,
-		EncryptionKey:        key,
-		TransferAllowed:      false,
-		ReceiverIsReady:      false,
-		Stopped:              false,
+		Port:            port,
+		FileToTransfer:  fileToTransfer,
+		Listener:        listener,
+		Connection:      nil,
+		IncomingPackets: incomingPacketsChan,
+		TransferInfo: &transferInfo{
+			SentFileBytesPackets:           0,
+			ApproximateNumberOfFilePackets: uint64(float32(fileToTransfer.Filesize) / float32(protocol.MAXPACKETSIZE)),
+		},
+		EncryptionKey:   key,
+		TransferAllowed: false,
+		ReceiverIsReady: false,
+		Stopped:         false,
 	}
 }
 
@@ -166,7 +169,7 @@ func (s *Sender) SendOffer() error {
 func (s *Sender) SendPiece() error {
 	// if no data to send - exit
 	if s.FileToTransfer.LeftBytes == 0 {
-		fmt.Printf("Done. Sent %d file packets\n", s.SentFileBytesPackets)
+		fmt.Printf("Done. Sent %d file packets\n", s.TransferInfo.SentFileBytesPackets)
 		s.Stop()
 	}
 
@@ -198,12 +201,39 @@ func (s *Sender) SendPiece() error {
 		return fmt.Errorf("could not send a file packet : %s", err)
 	}
 
-	// doing a "logging" for the next time
+	// doing a "logging" for the next piece
 	s.FileToTransfer.LeftBytes -= uint64(read)
 	s.FileToTransfer.SentBytes += uint64(read)
-	s.SentFileBytesPackets++
+	s.TransferInfo.SentFileBytesPackets++
 
 	return nil
+}
+
+// Prints a brief information about the state of the transfer
+func (s *Sender) PrintTransferInfo(pauseDuration time.Duration) {
+	next := time.Now().UTC()
+	for {
+		if !s.TransferAllowed {
+			time.Sleep(time.Second)
+			continue
+		}
+
+		now := time.Now().UTC()
+
+		if !now.After(next) {
+			continue
+		}
+		next = now.Add(pauseDuration)
+
+		fmt.Printf(`
+ | Sent packets/Approximate number of packets
+ | (%d|%d) (%.2f%%/100%%)
+`, s.TransferInfo.SentFileBytesPackets,
+			s.TransferInfo.ApproximateNumberOfFilePackets,
+			float32(s.TransferInfo.SentFileBytesPackets)/float32(s.TransferInfo.ApproximateNumberOfFilePackets)*100)
+
+		time.Sleep(pauseDuration)
+	}
 }
 
 // Listens in an endless loop; reads incoming packets, decrypts their BODY and puts into channel
@@ -237,6 +267,7 @@ func (s *Sender) ReceivePackets() {
 func (s *Sender) MainLoop() {
 
 	go s.ReceivePackets()
+	go s.PrintTransferInfo(time.Second * 3)
 
 	// instantly sending an encryption key, following the protocol`s rule
 	err := s.SendEncryptionKey()
