@@ -32,7 +32,7 @@ func GetPartialCheckSum(file *os.File) (CheckSum, error) {
 	fileSize := fileStats.Size()
 
 	if fileSize < int64(CHUNKS*CHUNKSIZE+STEP*(CHUNKS-1)) {
-		// file is too small, doing full checksum
+		// file is too small to chop it in chunks, so just doing full checksum
 
 		checksum, err := getFullCheckSum(file)
 		if err != nil {
@@ -85,6 +85,8 @@ func AreEqual(checksum1, checksum2 CheckSum) bool {
 func BytesToChecksum(bytes []byte) (CheckSum, error) {
 	if uint(len(bytes)) > CHECKSUMLEN {
 		return CheckSum{}, fmt.Errorf("provided bytes` length is bigger than the checksum`s")
+	} else if uint(len(bytes)) < CHECKSUMLEN {
+		return CheckSum{}, fmt.Errorf("provided bytes` length is smaller than needed")
 	}
 
 	var checksum [CHECKSUMLEN]byte

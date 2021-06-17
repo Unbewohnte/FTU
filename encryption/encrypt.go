@@ -20,5 +20,6 @@ func Encrypt(key, dataToEncrypt []byte) ([]byte, error) {
 	nonce := make([]byte, aesGCM.NonceSize())
 	encryptedData := aesGCM.Seal(nonce, nonce, dataToEncrypt, nil)
 
+	fmt.Printf("EEEEEEEEEEEEEEEEEE %v\n", encryptedData)
 	return encryptedData, nil
 }

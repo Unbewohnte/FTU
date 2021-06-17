@@ -36,9 +36,8 @@ Thus, with a connection and a way of communication, the sender will send some pa
 - Lack of information about the process of transferring; FIXED - [x]
 - No way to verify if the transferred file is not corrupted; FIXED via checksum- [x]
 - No encryption; FIXED via AES encryption of packets` body - [x] 
-- Messy and hard to follow code && file structure; FIXED? - [x]
-- No way to stop the download/upload and resume it later or even during the next connection; FIXED - [ ] 
-- No tests; FIXED - [ ]
+- Messy and hard to follow code && file structure; FIXED? - [x] 
+- No tests; FIXED - [x]; Not every packet has its tests, but they are present
 
 ## Good points
 - It works.
@@ -80,6 +79,14 @@ Thus, with a connection and a way of communication, the sender will send some pa
 - `./FTU -downloadto="/home/some_path_here/Downloads/" -addr="192.168.1.104"` - creates a client (receiver) that will try to connect to `192.168.1.104` (local device) on port `8080` and if successful - downloads a file to given path
 - `./FTU -downloadto="/home/some_path_here/Downloads/" -addr=145.125.53.212 -port=8888` - same as before, but will try to connect to `145.125.53.212` on port `8888`
 
+---
+
+## Testing
+
+In FTU directory:
+
+- `go test ./...` - to test recursively
+- `go test -v ./...` - to test recursively, with additional information 
 
 ---
 
