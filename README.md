@@ -85,8 +85,9 @@ Thus, with a connection and a way of communication, the sender will send some pa
 
 In FTU directory:
 
-- `go test ./...` - to test recursively
-- `go test -v ./...` - to test recursively, with additional information 
+- `go test ./...` - to test everything
+- `go test -v ./...` - to test everything, with additional information
+- `go test ./NAME_OF_THE_PACKAGE` - to test a certain package
 
 ---
 

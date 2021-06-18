@@ -52,36 +52,47 @@ func BytesToPacket(packetbytes []byte) Packet {
 	}
 }
 
-// Sends given packet to connection, following all the protocol`s rules.
-// ALL packets MUST be sent by this method
-func SendPacket(connection net.Conn, packetToSend Packet) error {
-	packetSize := MeasurePacketSize(packetToSend)
+// Converts given packet struct into ready-to-transfer bytes, constructed by following the protocol
+func PacketToBytes(packet Packet) ([]byte, error) {
+	packetSize := MeasurePacketSize(packet)
 
 	if packetSize > uint64(MAXPACKETSIZE) {
-		return fmt.Errorf("invalid packet!: EXCEEDED MAX PACKETSIZE")
+		return nil, fmt.Errorf("invalid packet!: EXCEEDED MAX PACKETSIZE")
 	}
 
-	// packetsize between delimeters (ie: |17|)
 	packetSizeBytes := []byte(strconv.Itoa(int(packetSize)))
 
 	// creating a buffer and writing the whole packet into it
-	packet := new(bytes.Buffer)
+	packetBuffer := new(bytes.Buffer)
 
-	packet.Write([]byte(PACKETSIZEDELIMETER))
-	packet.Write(packetSizeBytes)
-	packet.Write([]byte(PACKETSIZEDELIMETER))
+	// packetsize between delimeters (ie: |17|)
+	packetBuffer.Write([]byte(PACKETSIZEDELIMETER))
+	packetBuffer.Write(packetSizeBytes)
+	packetBuffer.Write([]byte(PACKETSIZEDELIMETER))
 
-	packet.Write([]byte(packetToSend.Header))
-	packet.Write([]byte(HEADERDELIMETER))
-	packet.Write(packetToSend.Body)
-
-	// write the result (ie: |17|FILENAME~file.png)
-	connection.Write(packet.Bytes())
+	// ie: FILENAME~file.txt
+	packetBuffer.Write([]byte(packet.Header))
+	packetBuffer.Write([]byte(HEADERDELIMETER))
+	packetBuffer.Write(packet.Body)
 
 	// for debug purposes (ᗜˬᗜ)
 	// fmt.Printf("SENDING PACKET: %s%s%s%s%s%s\n",
 	// 	[]byte(PACKETSIZEDELIMETER), packetSizeBytes, []byte(PACKETSIZEDELIMETER),
 	// 	[]byte(packetToSend.Header), []byte(HEADERDELIMETER), packetToSend.Body)
+
+	return packetBuffer.Bytes(), nil
+}
+
+// Sends given packet to connection, following all the protocol`s rules.
+// ALL packets MUST be sent by this method
+func SendPacket(connection net.Conn, packetToSend Packet) error {
+	packetBytes, err := PacketToBytes(packetToSend)
+	if err != nil {
+		return fmt.Errorf("could not convert given packet to bytes: %s", err)
+	}
+	// write the result (ie: |17|FILENAME~file.png)
+	connection.Write(packetBytes)
+
 	return nil
 }
 
