@@ -13,45 +13,43 @@ import (
 // flags
 var PORT *int = flag.Int("port", 8080, "Specifies a port for a sender|port to connect to")
 var SENDERADDR *string = flag.String("addr", "", "Specifies an address to connect to")
-var DOWNLOADSFOLDER *string = flag.String("downloadto", "", "Specifies where the receiver will store downloaded file")
+var DOWNLOADSFOLDER *string = flag.String("downloadto", ".", "Specifies where the receiver will store downloaded file")
 var SHAREDFILE *string = flag.String("sharefile", "", "Specifies what file sender will send")
 
 var SENDING bool
 
 // Input-validation
-func processFlags() {
+func validateFlags() {
+	// port validation
 	if *PORT < 0 {
 		fmt.Println("Invalid port !")
 		os.Exit(-1)
 	}
 
-	// going to send file -> sending
+	// sending or receiving
 	if strings.TrimSpace(*SHAREDFILE) != "" {
 		SENDING = true
-	}
-	// specifying address to connect to -> receiving
-	if strings.TrimSpace(*SENDERADDR) != "" {
-		if SENDING {
-			fmt.Println("Cannot specify an address when sharing !")
-			os.Exit(-1)
-		}
-		SENDING = false
-	}
-	// specifying path to download to -> receiving
-	if strings.TrimSpace(*DOWNLOADSFOLDER) != "" {
-		if SENDING {
-			fmt.Println("Cannot specify a downloads directory when sharing !")
-			os.Exit(-1)
-		}
+	} else if strings.TrimSpace(*SENDERADDR) != "" {
 		SENDING = false
 	}
 
+	// check for default values in vital flags in case they were not provided
+	if strings.TrimSpace(*SENDERADDR) == "" && strings.TrimSpace(*SHAREDFILE) == "" {
+		fmt.Println("--help to see available flags")
+		os.Exit(-1)
+	} else if !SENDING && strings.TrimSpace(*SENDERADDR) == "" {
+		fmt.Println("No specified sender`s address")
+		os.Exit(-1)
+	} else if SENDING && strings.TrimSpace(*SHAREDFILE) == "" {
+		fmt.Println("No specified file")
+		os.Exit(-1)
+	}
 }
 
 // parse flags, validate given values
 func init() {
 	flag.Parse()
-	processFlags()
+	validateFlags()
 }
 
 func main() {

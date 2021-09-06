@@ -52,7 +52,7 @@ func NewSender(port int, filepath string) *Sender {
 	key := encryption.Generate32AESkey()
 	fmt.Printf("Generated an encryption key: %s\n", key)
 
-	fmt.Printf("Created a new sender at %s:%d (remote)\n%s:%d (local)\n", remoteIP, port, localIP, port)
+	fmt.Printf("Created a new sender at %s:%d (remote)\n%s:%d (local)\n\n", remoteIP, port, localIP, port)
 	return &Sender{
 		Port:            port,
 		FileToTransfer:  fileToTransfer,
@@ -265,7 +265,7 @@ func (s *Sender) ReceivePackets() {
 // Current structure allows the sender to receive any type of packet
 // in any order and react correspondingly
 func (s *Sender) MainLoop() {
-
+	// receive and print in separate goroutines
 	go s.ReceivePackets()
 	go s.PrintTransferInfo(time.Second * 3)
 
