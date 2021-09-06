@@ -13,7 +13,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/Unbewohnte/FTU/encryption"
+	"github.com/Unbewohnte/ftu/encryption"
 )
 
 // Internal representation of packet before|after the transportation

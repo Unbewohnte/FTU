@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Unbewohnte/FTU/checksum"
+	"github.com/Unbewohnte/ftu/checksum"
 )
 
 // Struct that represents the served file. Used internally in the sender

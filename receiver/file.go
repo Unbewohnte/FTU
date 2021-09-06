@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Unbewohnte/FTU/checksum"
+	"github.com/Unbewohnte/ftu/checksum"
 )
 
 // Receiver`s file struct. Used internally by receiver

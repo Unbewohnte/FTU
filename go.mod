@@ -1,3 +1,3 @@
-module github.com/Unbewohnte/FTU
+module github.com/Unbewohnte/ftu
 
-go 1.16
+go 1.17

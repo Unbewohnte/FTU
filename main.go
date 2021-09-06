@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Unbewohnte/FTU/receiver"
-	"github.com/Unbewohnte/FTU/sender"
+	"github.com/Unbewohnte/ftu/receiver"
+	"github.com/Unbewohnte/ftu/sender"
 )
 
 // flags

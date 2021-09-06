@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Unbewohnte/FTU/checksum"
-	"github.com/Unbewohnte/FTU/encryption"
-	"github.com/Unbewohnte/FTU/protocol"
+	"github.com/Unbewohnte/ftu/checksum"
+	"github.com/Unbewohnte/ftu/encryption"
+	"github.com/Unbewohnte/ftu/protocol"
 )
 
 // Representation of a receiver
@@ -39,7 +39,7 @@ func NewReceiver(downloadsFolder string) *Receiver {
 		panic("Downloads folder is not a directory")
 	}
 
-	incomingPacketsChan := make(chan protocol.Packet, 5000)
+	incomingPacketsChan := make(chan protocol.Packet, 100)
 
 	fmt.Println("Created a new receiver")
 	return &Receiver{

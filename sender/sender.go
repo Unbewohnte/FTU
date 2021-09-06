@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Unbewohnte/FTU/checksum"
-	"github.com/Unbewohnte/FTU/encryption"
-	"github.com/Unbewohnte/FTU/protocol"
+	"github.com/Unbewohnte/ftu/checksum"
+	"github.com/Unbewohnte/ftu/encryption"
+	"github.com/Unbewohnte/ftu/protocol"
 )
 
 // The main sender struct
@@ -38,7 +38,7 @@ func NewSender(port int, filepath string) *Sender {
 	if err != nil {
 		panic(err)
 	}
-	incomingPacketsChan := make(chan protocol.Packet, 5000)
+	incomingPacketsChan := make(chan protocol.Packet, 100)
 
 	remoteIP, err := GetRemoteIP()
 	if err != nil {
