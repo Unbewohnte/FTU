@@ -35,7 +35,7 @@ func validateFlags() {
 
 	// check for default values in vital flags in case they were not provided
 	if strings.TrimSpace(*SENDERADDR) == "" && strings.TrimSpace(*SHAREDFILE) == "" {
-		fmt.Println("--help to see available flags")
+		flag.PrintDefaults()
 		os.Exit(-1)
 	} else if !SENDING && strings.TrimSpace(*SENDERADDR) == "" {
 		fmt.Println("No specified sender`s address")
