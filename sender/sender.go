@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
 	"strconv"
 	"time"
 
@@ -21,9 +22,9 @@ type Sender struct {
 	IncomingPackets chan protocol.Packet
 	EncryptionKey   []byte
 	TransferInfo    *transferInfo
-	TransferAllowed bool
-	ReceiverIsReady bool
-	Stopped         bool
+	TransferAllowed bool // the receiver had agreed to receive a file
+	ReceiverIsReady bool // receiver is waiting for a new packet
+	Stopped         bool // controlls the mainloop
 }
 
 // Creates a new sender with default|necessary fields
@@ -41,8 +42,10 @@ func NewSender(port int, filepath string) *Sender {
 
 	remoteIP, err := GetRemoteIP()
 	if err != nil {
-		panic(err)
+		// don`t panic if couldn`t get remote IP
+		remoteIP = ""
 	}
+
 	localIP, err := GetLocalIP()
 	if err != nil {
 		panic(err)
@@ -70,23 +73,32 @@ func NewSender(port int, filepath string) *Sender {
 	}
 }
 
+// When the interrupt signal is sent - exit cleanly
+func (s *Sender) HandleInterrupt() {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+
+	go func() {
+		<-signalChan
+		s.Stop()
+	}()
+}
+
 // Closes the connection, warns about it the receiver and exits the mainloop
 func (s *Sender) Stop() {
-	disconnectionPacket := protocol.Packet{
-		Header: protocol.HeaderDisconnecting,
-	}
-	err := protocol.SendEncryptedPacket(s.Connection, disconnectionPacket, s.EncryptionKey)
-	if err != nil {
-		panic(fmt.Sprintf("could not send a disconnection packet: %s", err))
+	if s.Connection != nil {
+		disconnectionPacket := protocol.Packet{
+			Header: protocol.HeaderDisconnecting,
+		}
+		err := protocol.SendEncryptedPacket(s.Connection, disconnectionPacket, s.EncryptionKey)
+		if err != nil {
+			panic(fmt.Sprintf("could not send a disconnection packet: %s", err))
+		}
+
+		s.Connection.Close()
 	}
 
 	s.Stopped = true
-	s.Disconnect()
-}
-
-// Closes current connection
-func (s *Sender) Disconnect() {
-	s.Connection.Close()
 }
 
 // Accepts one connection

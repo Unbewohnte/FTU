@@ -58,6 +58,7 @@ func main() {
 		// 3) send info about the file -> 4) if accepted - upload file
 		sender := sender.NewSender(*PORT, *SHAREDFILE)
 		sender.WaitForConnection()
+		sender.HandleInterrupt()
 		sender.MainLoop()
 
 	} else {
@@ -65,6 +66,7 @@ func main() {
 		// 4) accept or refuse -> 5) download|don`t_download file
 		receiver := receiver.NewReceiver(*DOWNLOADSFOLDER)
 		receiver.Connect(fmt.Sprintf("%s:%d", *SENDERADDR, *PORT))
+		receiver.HandleInterrupt()
 		receiver.MainLoop()
 	}
 }

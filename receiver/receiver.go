@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -21,9 +22,9 @@ type Receiver struct {
 	IncomingPackets chan protocol.Packet
 	FileToDownload  *file
 	EncryptionKey   []byte
-	ReadyToReceive  bool
-	Stopped         bool
 	TransferInfo    *transferInfo
+	ReadyToReceive  bool // waiting for a new packet
+	Stopped         bool // controlls the mainloop
 }
 
 // Creates a new client with default fields
@@ -58,19 +59,29 @@ func NewReceiver(downloadsFolder string) *Receiver {
 	}
 }
 
-// Closes the connection
-func (r *Receiver) Disconnect() {
-	r.Connection.Close()
+// When the interrupt signal is sent - exit cleanly
+func (r *Receiver) HandleInterrupt() {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+
+	go func() {
+		<-signalChan
+		r.Stop()
+	}()
 }
 
 // Closes the connection, warns the sender and exits the mainloop
 func (r *Receiver) Stop() {
-	disconnectionPacket := protocol.Packet{
-		Header: protocol.HeaderDisconnecting,
+	if r.Connection != nil {
+		disconnectionPacket := protocol.Packet{
+			Header: protocol.HeaderDisconnecting,
+		}
+		protocol.SendEncryptedPacket(r.Connection, disconnectionPacket, r.EncryptionKey)
+		r.Connection.Close()
 	}
-	protocol.SendEncryptedPacket(r.Connection, disconnectionPacket, r.EncryptionKey)
+
 	r.Stopped = true
-	r.Disconnect()
+
 }
 
 // Connects to a given address over tcp. Sets a connection to a corresponding field in receiver
