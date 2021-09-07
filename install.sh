@@ -1,7 +1,7 @@
 #!/bin/bash
 
 EXECUTABLE_NAME=ftu
-DESTDIR=/usr/bin/
+DESTDIR=/usr/local/bin/
 
 # if ftu is in the same directory - copy it to $DESTDIR
 if [ -e $EXECUTABLE_NAME ]
