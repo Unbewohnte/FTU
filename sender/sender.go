@@ -63,8 +63,8 @@ func NewSender(port int, filepath string) *Sender {
 		Connection:      nil,
 		IncomingPackets: incomingPacketsChan,
 		TransferInfo: &transferInfo{
-			SentFileBytesPackets:           0,
-			ApproximateNumberOfFilePackets: uint64(float32(fileToTransfer.Filesize) / float32(protocol.MAXPACKETSIZE)),
+			SentFileBytesPackets:    0,
+			ApproximateNumOfPackets: uint64(float32(fileToTransfer.Filesize) / float32(protocol.MAXPACKETSIZE)),
 		},
 		EncryptionKey:   key,
 		TransferAllowed: false,
@@ -181,7 +181,7 @@ func (s *Sender) SendOffer() error {
 func (s *Sender) SendPiece() error {
 	// if no data to send - exit
 	if s.FileToTransfer.LeftBytes == 0 {
-		fmt.Printf("Done. Sent %d file packets\n", s.TransferInfo.SentFileBytesPackets)
+		fmt.Printf("Done. Sent %d file packets\nTook %v\n", s.TransferInfo.SentFileBytesPackets, time.Since(s.TransferInfo.StartTime))
 		s.Stop()
 	}
 
@@ -224,6 +224,7 @@ func (s *Sender) SendPiece() error {
 // Prints a brief information about the state of the transfer
 func (s *Sender) PrintTransferInfo(pauseDuration time.Duration) {
 	next := time.Now().UTC()
+	s.TransferInfo.StartTime = next
 	for {
 		if !s.TransferAllowed {
 			time.Sleep(time.Second)
@@ -241,8 +242,8 @@ func (s *Sender) PrintTransferInfo(pauseDuration time.Duration) {
  | Sent packets/Approximate number of packets
  | (%d|%d) (%.2f%%/100%%)
 `, s.TransferInfo.SentFileBytesPackets,
-			s.TransferInfo.ApproximateNumberOfFilePackets,
-			float32(s.TransferInfo.SentFileBytesPackets)/float32(s.TransferInfo.ApproximateNumberOfFilePackets)*100)
+			s.TransferInfo.ApproximateNumOfPackets,
+			float32(s.TransferInfo.SentFileBytesPackets)/float32(s.TransferInfo.ApproximateNumOfPackets)*100)
 
 		time.Sleep(pauseDuration)
 	}

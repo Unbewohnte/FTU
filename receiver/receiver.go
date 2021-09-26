@@ -53,8 +53,8 @@ func NewReceiver(downloadsFolder string) *Receiver {
 			Filesize: 0,
 		},
 		TransferInfo: &transferInfo{
-			ReceivedFileBytesPackets:       0,
-			ApproximateNumberOfFilePackets: 0,
+			ReceivedFileBytesPackets: 0,
+			ApproximateNumOfPackets:  0,
 		},
 	}
 }
@@ -166,7 +166,7 @@ func (r *Receiver) HandleFileOffer() error {
 		return fmt.Errorf("could not send an acceptance packet: %s", err)
 	}
 
-	r.TransferInfo.ApproximateNumberOfFilePackets = uint64(float32(r.FileToDownload.Filesize) / float32(protocol.MAXPACKETSIZE))
+	r.TransferInfo.ApproximateNumOfPackets = uint64(float32(r.FileToDownload.Filesize) / float32(protocol.MAXPACKETSIZE))
 
 	return nil
 }
@@ -193,6 +193,7 @@ func (r *Receiver) WritePieceOfFile(filePacket protocol.Packet) error {
 // Prints a brief information about the state of the transfer
 func (r *Receiver) PrintTransferInfo(pauseDuration time.Duration) {
 	next := time.Now().UTC()
+	r.TransferInfo.StartTime = next
 	for {
 		if r.TransferInfo.ReceivedFileBytesPackets == 0 {
 			time.Sleep(time.Second)
@@ -210,8 +211,8 @@ func (r *Receiver) PrintTransferInfo(pauseDuration time.Duration) {
  | Received packets/Approximate number of packets
  | (%d|%d) (%.2f%%/100%%)
 `, r.TransferInfo.ReceivedFileBytesPackets,
-			r.TransferInfo.ApproximateNumberOfFilePackets,
-			float32(r.TransferInfo.ReceivedFileBytesPackets)/float32(r.TransferInfo.ApproximateNumberOfFilePackets)*100)
+			r.TransferInfo.ApproximateNumOfPackets,
+			float32(r.TransferInfo.ReceivedFileBytesPackets)/float32(r.TransferInfo.ApproximateNumOfPackets)*100)
 
 		time.Sleep(pauseDuration)
 	}
@@ -331,7 +332,7 @@ func (r *Receiver) MainLoop() {
 			// the sender has completed its mission,
 			// checking hashes and exiting
 
-			fmt.Println("Got ", r.TransferInfo.ReceivedFileBytesPackets, " file packets in total")
+			fmt.Printf("Got %d file packets in total. Took %v\n", r.TransferInfo.ReceivedFileBytesPackets, time.Since(r.TransferInfo.StartTime))
 			fmt.Println("Comparing checksums...")
 
 			file, err := os.Open(filepath.Join(r.DownloadsFolder, r.FileToDownload.Filename))

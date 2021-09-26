@@ -78,7 +78,7 @@ func PacketToBytes(packet Packet) ([]byte, error) {
 	// for debug purposes (ᗜˬᗜ)
 	// fmt.Printf("SENDING PACKET: %s%s%s%s%s%s\n",
 	// 	[]byte(PACKETSIZEDELIMETER), packetSizeBytes, []byte(PACKETSIZEDELIMETER),
-	// 	[]byte(packetToSend.Header), []byte(HEADERDELIMETER), packetToSend.Body)
+	// 	[]byte(packet.Header), []byte(HEADERDELIMETER), packet.Body)
 
 	return packetBuffer.Bytes(), nil
 }
@@ -152,13 +152,13 @@ func ReadFromConn(connection net.Conn) ([]byte, error) {
 	// have a packetsize, now reading the whole packet
 	packetBuffer := new(bytes.Buffer)
 
-	// splitting big-sized packet into chunks and constructing it from pieces
+	// splitting a big-sized packet into chunks and constructing it from pieces
 	left := packetSize
 	for {
 		if left == 0 {
 			break
 		}
-		buff := make([]byte, 1024)
+		buff := make([]byte, 8192)
 		if left < len(buff) {
 			buff = make([]byte, left)
 		}
