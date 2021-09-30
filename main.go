@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"flag"
 	"fmt"
 	"os"
@@ -11,15 +12,26 @@ import (
 )
 
 // flags
-var PORT *int = flag.Int("port", 8080, "Specifies a port for a sender|port to connect to")
-var SENDERADDR *string = flag.String("addr", "", "Specifies an address to connect to")
-var DOWNLOADSFOLDER *string = flag.String("downloadto", ".", "Specifies where the receiver will store downloaded file")
-var SHAREDFILE *string = flag.String("sharefile", "", "Specifies what file sender will send")
+var (
+	PORT            *int    = flag.Int("port", 8080, "Specifies a port for a sender|port to connect to")
+	SENDERADDR      *string = flag.String("addr", "", "Specifies an address to connect to")
+	DOWNLOADSFOLDER *string = flag.String("downloadto", ".", "Specifies where the receiver will store downloaded file")
+	SHAREDFILE      *string = flag.String("sharefile", "", "Specifies what file sender will send")
+	LICENSE         *bool   = flag.Bool("license", false, "Prints a license text")
 
-var SENDING bool
+	SENDING bool
+
+	//go:embed LICENSE
+	LicenseText string
+)
 
 // Input-validation
 func validateFlags() {
+	if *LICENSE {
+		fmt.Println(LicenseText)
+		os.Exit(0)
+	}
+
 	// port validation
 	if *PORT < 0 {
 		fmt.Println("Invalid port !")
