@@ -25,8 +25,10 @@ var (
 	LicenseText string
 )
 
-// Input-validation
-func validateFlags() {
+// parse flags, validate given values
+func init() {
+	flag.Parse()
+
 	if *LICENSE {
 		fmt.Println(LicenseText)
 		os.Exit(0)
@@ -56,12 +58,6 @@ func validateFlags() {
 		fmt.Println("No specified file")
 		os.Exit(-1)
 	}
-}
-
-// parse flags, validate given values
-func init() {
-	flag.Parse()
-	validateFlags()
 }
 
 func main() {
