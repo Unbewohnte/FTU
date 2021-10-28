@@ -13,24 +13,24 @@ import (
 
 // flags
 var (
-	PORT            *int    = flag.Int("port", 8080, "Specifies a port for a sender|port to connect to")
+	PORT            *int    = flag.Int("port", 7270, "Specifies a port to work with")
 	SENDERADDR      *string = flag.String("addr", "", "Specifies an address to connect to")
 	DOWNLOADSFOLDER *string = flag.String("downloadto", ".", "Specifies where the receiver will store downloaded file")
 	SHAREDFILE      *string = flag.String("sharefile", "", "Specifies what file sender will send")
-	LICENSE         *bool   = flag.Bool("license", false, "Prints a license text")
+	PRINTLICENSE    *bool   = flag.Bool("license", false, "Prints a license text")
 
 	SENDING bool
 
 	//go:embed LICENSE
-	LicenseText string
+	licenseText string
 )
 
 // parse flags, validate given values
 func init() {
 	flag.Parse()
 
-	if *LICENSE {
-		fmt.Println(LicenseText)
+	if *PRINTLICENSE {
+		fmt.Println(licenseText)
 		os.Exit(0)
 	}
 

@@ -104,3 +104,9 @@ Also, this utility only works if the server side has a port-forwarding|virtual s
 
 ## ● License
 MIT
+
+## ● TODO
+- multiple filepaths as args, not as a flag
+- send all files in a directory
+- send all files in a directory recursively
+- ip address as an arg, not as a flag

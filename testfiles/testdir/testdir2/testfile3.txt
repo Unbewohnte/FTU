@@ -1,0 +1,9 @@
+testfile3
+
+
+SAMPLE TEXT
+
+lCtrl + Lshift + u 
+15dc 2ec 15dc
+
+not on Windows tho AFAIK
