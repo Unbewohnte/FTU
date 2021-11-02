@@ -1,4 +1,4 @@
-# FTU (FileTransferringUtility)
+# ftu (FileTransferringUtility)
 ## Send files through the Net ! 
 
 ---
@@ -25,65 +25,59 @@ Thus, with a connection and a way of communication, the sender will send some pa
 ---
 
 
-## ● Known issues|problems|lack of features|reasons why it`s bad
-- ~~**VERY** slow~~
-- ~~**VERY**~~ expensive on resources
-- ~~Lack of proper error-handling~~
-- ~~Lack of information about the process of transferring~~
-- ~~No way to verify if the transferred file is not corrupted~~
-- ~~No encryption~~
-- ~~No tests~~
-- ~~No interrupt signal handling~~
-
-## ● Good points
-- It works.
-
----
-
 ## ● Installation
 
 ### ● From release (Pre-compiled)
 - Proceed to [releases page](https://github.com/Unbewohnte/ftu/releases)
 - Choose a version/architecture you have and download an archive
 - Unpack an archive
+- If on GNU/Linux - run `sudo make install`
 
 ### ● From source (Compile it yourself) (You need [Go](https://golang.org/dl/) and [git](https://git-scm.com/) to be installed on your machine)
 - `git clone https://github.com/Unbewohnte/ftu.git`
 - `cd` into the folder
-- `go build` - to simply compile for your OS/ARCHITECTURE || `CGO_ENABLED=0 go build` - to compile a static executable
-
-### ● Final steps (optional)
-- `cd` into folder if you`re not there already
-- `chmod +x install.sh` - make installation script executable
-- `sudo ./install.sh`
+- `make`
+- If on GNU/Linux - run `sudo make install` 
 
 Now you have ftu installed !
 
 ---
 
 ## ● Usage
-`ftu [FLAGS_HERE]`
+`ftu -h` - to print a usage message
 
-### ● Flags
-`ftu --help` - to get all flags` description
+`ftu [FLAGS]`
 
-- `-port` (int) - specifies a working port (if sending - listens on this port, else - tries to connect to this port);
-- `-addr` (string) - specifies an address to connect to;
-- `-sharefile` (string) - specifies path to a file you want to share, if given a valid path - sender will offer to download this file to receiver;
-- `-downloadto` (string) - specifies path to a folder where the receiver wants to store downloaded file;
+### ● FLAGs
+- -p [Uinteger_here] for port
+- -r [true|false] for recursive sending of a directory
+- -a [ip_address|domain_name] address to connect to (cannot be used with -s)
+- -d [path_to_directory] where the files will be downloaded to (cannot be used with -s)
+- -s [path_to_file|directory] to send it (cannot be used with -a)
+- -l for license text
 
 ### ● Examples
 
-- `ftu -sharefile="/home/some_path_here/FILETOSHARE.zip"` - creates a server that will share `FILETOSHARE.zip` on port `8080`
-- `ftu -sharefile="/home/some_path_here/FILETOSHARE.zip" - port=727` - same as before, but on port `727`
-- `ftu -downloadto="/home/some_path_here/Downloads/" -addr="192.168.1.104"` - creates a client (receiver) that will try to connect to `192.168.1.104` (local device) on port `8080` and if successful - downloads a file to given path
-- `ftu -downloadto="/home/some_path_here/Downloads/" -addr=145.125.53.212 -port=8888` - same as before, but will try to connect to `145.125.53.212` on port `8888`
+`ftu -p 89898 -s /home/user/Downloads/someVideo.mp4`
+creates a node on a non-default port 89898 that will send "someVideo.mp4" to the other node that connects to you
+
+`ftu -p 7277 -a 192.168.1.104 -d .`
+creates a node that will connect to 192.168.1.104:7277 and download served file|directory to the working directory
+
+`ftu -p 7277 -a 192.168.1.104 -d /home/user/Downloads/`
+creates a node that will connect to 192.168.1.104:7277 and download served file|directory to "/home/user/Downloads/"
+
+`ftu -s /home/user/homework`
+creates a node that will send every file in the directory
+
+`ftu -r -s /home/user/homework/`
+creates a node that will send every file in the directory !RECUSRIVELY!
 
 ---
 
 ## ● Testing
 
-In 'ftu' directory:
+In 'src' directory:
 
 - `go test ./...` - to test everything
 - `go test -v ./...` - to test everything, with additional information
@@ -106,7 +100,5 @@ Also, this utility only works if the server side has a port-forwarding|virtual s
 MIT
 
 ## ● TODO
-- multiple filepaths as args, not as a flag
-- send all files in a directory
-- send all files in a directory recursively
-- ip address as an arg, not as a flag
+- Send directory
+- Wire back encryption

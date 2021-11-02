@@ -9,30 +9,28 @@ import (
 // Practically tests the whole protocol
 func TestTransfer(t *testing.T) {
 	packet := Packet{
-		Header: HeaderFilename,
+		Header: "randomheader",
 		Body:   []byte("fIlEnAmE.txt"),
 	}
 
-	packetBuffer := new(bytes.Buffer)
-	packetBuffer.Write([]byte(packet.Header))
-	packetBuffer.Write([]byte(HEADERDELIMETER))
-	packetBuffer.Write(packet.Body)
-
 	// a valid representation of received packet`s bytes
-	packetBytes := packetBuffer.Bytes()
+	packetBytes, err := packet.ToBytes()
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
 
 	// imitating a connection
 	l, err := net.Listen("tcp", ":9999")
 	if err != nil {
-		t.Errorf("Unexpected error: %s", err)
+		t.Fatalf("%s", err)
 	}
 	c, err := net.Dial("tcp", "localhost:9999")
 	if err != nil {
-		t.Errorf("Unexpected error: %s", err)
+		t.Fatalf("%s", err)
 	}
 	cc, err := l.Accept()
 	if err != nil {
-		t.Errorf("Unexpected error: %s", err)
+		t.Fatalf("%s", err)
 	}
 	defer c.Close()
 	defer cc.Close()
@@ -40,25 +38,28 @@ func TestTransfer(t *testing.T) {
 	// sending packet
 	err = SendPacket(cc, packet)
 	if err != nil {
-		t.Errorf("SendPacket failed: %s", err)
+		t.Fatalf("SendPacket failed: %s", err)
 	}
 
-	//
+	// reading it from c
 	receivedPacket, err := ReadFromConn(c)
 	if err != nil {
-		t.Errorf("ReadFromConn failed: %s", err)
+		t.Fatalf("ReadFromConn failed: %s", err)
 	}
+
+	// drop packetsize for valid packet bytes because they are also dropped in ReadFromConn
+	packetBytes = packetBytes[8:]
 
 	for index, b := range receivedPacket {
 		if b != packetBytes[index] {
-			t.Errorf("Failed: wanted: %v, got: %v", packetBytes[index], b)
+			t.Fatalf("Error: packet bytes do not match: expected %v, got: %v; valid packet: %v; received packet: %v", string(packetBytes[index]), string(b), packetBytes, receivedPacket)
 		}
 	}
 }
 
 func TestBytesToPacket(t *testing.T) {
 	packet := Packet{
-		Header: HeaderFilename,
+		Header: HeaderFileBytes,
 		Body:   []byte("fIlEnAmE.txt"),
 	}
 
@@ -70,9 +71,12 @@ func TestBytesToPacket(t *testing.T) {
 	// a valid representation of received packet`s bytes
 	packetBytes := packetBuffer.Bytes()
 
-	convertedPacket := BytesToPacket(packetBytes)
+	convertedPacket, err := BytesToPacket(packetBytes)
+	if err != nil {
+		t.Fatalf("BytesToPacket error: %s", err)
+	}
 
 	if convertedPacket.Header != packet.Header || string(convertedPacket.Body) != string(packet.Body) {
-		t.Errorf("BytesToPacket failed")
+		t.Fatalf("BytesToPacket error: header or body of converted packet does not match with the original")
 	}
 }

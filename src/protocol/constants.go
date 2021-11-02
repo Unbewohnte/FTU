@@ -6,11 +6,6 @@ package protocol
 // (packets with size bigger than MAXPACKETSIZE are invalid and will not be sent)
 const MAXPACKETSIZE uint = 131072 // 128 KiB
 
-// PACKETSIZEDELIMETER.
-// Character that delimits one and the other sides of the next incoming packet.
-// ie: |packet_size_here|packet_here, where "|" is PACKETSIZEDELIMETER
-const PACKETSIZEDELIMETER string = "|"
-
 // HEADERDELIMETER.
 // Character that delimits header of the packet from the body of the packet.
 // ie: FILEINFO~img.png

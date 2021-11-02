@@ -1,4 +1,4 @@
-package fs
+package fsys
 
 import (
 	"fmt"
@@ -18,14 +18,10 @@ type Directory struct {
 var ErrorNotDirectory error = fmt.Errorf("not a directory")
 
 func GetDir(path string, recursive bool) (*Directory, error) {
-	fmt.Println("Provided path ", path)
-
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Println("absolute path ", absPath)
 
 	stats, err := os.Stat(absPath)
 	if err != nil {
@@ -56,8 +52,6 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 				// do the recursive magic
 				innerDirPath := filepath.Join(absPath, entry.Name())
 
-				fmt.Println("inner dir path ", innerDirPath)
-
 				innerDir, err := GetDir(innerDirPath, true)
 				if err != nil {
 					return nil, err
@@ -69,8 +63,6 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 
 		} else {
 			innerFilePath := filepath.Join(absPath, entryInfo.Name())
-
-			fmt.Println("inner file path ", innerFilePath)
 
 			innerFile, err := GetFile(innerFilePath)
 			if err != nil {
