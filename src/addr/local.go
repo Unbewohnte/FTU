@@ -5,7 +5,7 @@ import (
 )
 
 // Get local IP address; from https://stackoverflow.com/a/37382208
-func GetLocalIP() (string, error) {
+func GetLocal() (string, error) {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
 		return "", err

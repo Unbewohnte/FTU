@@ -12,8 +12,8 @@ import (
 	"github.com/Unbewohnte/ftu/protocol"
 )
 
-// sends a notification about the file
-func sendFilePacket(connection net.Conn, file *fsys.File) error {
+// sends a notification about the file to the other side. If encrKey is not nil - encrypts packet`s body
+func sendFilePacket(connection net.Conn, file *fsys.File, encrKey []byte) error {
 	if connection == nil {
 		return ErrorNotConnected
 	}
@@ -54,6 +54,15 @@ func sendFilePacket(connection net.Conn, file *fsys.File) error {
 
 	filePacket.Body = fPacketBodyBuff.Bytes()
 
+	if encrKey != nil {
+		// if the key is given - encrypt ready-to-go packet
+		err = filePacket.EncryptBody(encrKey)
+		if err != nil {
+			return err
+		}
+	}
+
+	// and send it
 	err = protocol.SendPacket(connection, filePacket)
 	if err != nil {
 		return err
@@ -72,8 +81,9 @@ func sendDirectoryPacket(connection net.Conn, dir *fsys.Directory) error {
 }
 
 // sends a piece of file to the connection; The next calls will send
-// another piece util the file has been fully sent
-func sendPiece(file *fsys.File, connection net.Conn) error {
+// another piece util the file has been fully sent. If encrKey is not nil - encrypts each packet with
+// this key
+func sendPiece(file *fsys.File, connection net.Conn, encrKey []byte) error {
 	if file.Handler == nil {
 		fHandler, err := os.Open(file.Path)
 		if err != nil {
@@ -106,9 +116,15 @@ func sendPiece(file *fsys.File, connection net.Conn) error {
 	// fill the remaining space of packet with the contents of a file
 	canSendBytes := uint64(protocol.MAXPACKETSIZE) - fileBytesPacket.Size() - uint64(packetBodyBuff.Len())
 
+	if encrKey != nil {
+		// account for padding
+		canSendBytes -= 32
+	}
+
 	if (file.Size - file.SentBytes) < canSendBytes {
 		canSendBytes = (file.Size - file.SentBytes)
 	}
+
 	fileBytes := make([]byte, canSendBytes)
 
 	read, err := file.Handler.ReadAt(fileBytes, int64(file.SentBytes))
@@ -119,6 +135,13 @@ func sendPiece(file *fsys.File, connection net.Conn) error {
 	packetBodyBuff.Write(fileBytes)
 
 	fileBytesPacket.Body = packetBodyBuff.Bytes()
+
+	if encrKey != nil {
+		err = fileBytesPacket.EncryptBody(encrKey)
+		if err != nil {
+			return err
+		}
+	}
 
 	// send it to the other side
 	err = protocol.SendPacket(connection, fileBytesPacket)

@@ -59,7 +59,7 @@ func BytesToPacket(packetbytes []byte) (*Packet, error) {
 	}, nil
 }
 
-var ErrorExceededMaxPacketsize error = fmt.Errorf("too big packet")
+var ErrorExceededMaxPacketsize error = fmt.Errorf("the packet is too big")
 
 // Converts given packet struct into ready-to-transfer bytes, constructed by following the protocol
 func (packet *Packet) ToBytes() ([]byte, error) {
@@ -86,14 +86,15 @@ func (packet *Packet) ToBytes() ([]byte, error) {
 	return packetBuffer.Bytes(), nil
 }
 
-// Sends given packet to connection, following all the protocol`s rules.
+// Sends given packet to connection.
 // ALL packets MUST be sent by this method
 func SendPacket(connection net.Conn, packet Packet) error {
 	packetBytes, err := packet.ToBytes()
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("DEBUG: sending packet %+v\n", packet)
+
+	// fmt.Printf("[SEND] packet %+s; len: %d\n", packetBytes[:30], len(packetBytes))
 
 	// write the result (ie: (packetsize)(header)~(bodybytes))
 	connection.Write(packetBytes)
@@ -109,6 +110,22 @@ func (packet *Packet) EncryptBody(key []byte) error {
 		return err
 	}
 	packet.Body = encryptedBody
+
+	return nil
+}
+
+// Decrypts packet`s BODY with AES decryption
+func (packet *Packet) DecryptBody(key []byte) error {
+	if len(packet.Body) == 0 {
+		return nil
+	}
+
+	decryptedBody, err := encryption.Decrypt(key, packet.Body)
+	if err != nil {
+		return err
+	}
+
+	packet.Body = decryptedBody
 
 	return nil
 }
@@ -143,15 +160,7 @@ func ReadFromConn(connection net.Conn) ([]byte, error) {
 		packetBuffer.Write(buff[:read])
 	}
 
-	// read the rest of the packet
-	// packet := make([]byte, packetSize)
-	// read, err := connection.Read(packet)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// fmt.Printf("DEBUG: read from connection: %s; length: %d\n", packetBuffer.Bytes()[:40], packetBuffer.Len())
-	// fmt.Printf("DEBUG: read from connection: %s; length: %d\n", packet, len(packet))
+	// fmt.Printf("[RECV] read from connection: %s; length: %d\n", packetBuffer.Bytes()[:30], packetBuffer.Len())
 
 	return packetBuffer.Bytes(), nil
 }

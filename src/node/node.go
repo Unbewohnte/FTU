@@ -14,6 +14,7 @@ import (
 
 	"github.com/Unbewohnte/ftu/addr"
 	"github.com/Unbewohnte/ftu/checksum"
+	"github.com/Unbewohnte/ftu/encryption"
 	"github.com/Unbewohnte/ftu/fsys"
 	"github.com/Unbewohnte/ftu/protocol"
 )
@@ -42,6 +43,7 @@ type TransferInfo struct {
 // Sender and receiver in one type !
 type Node struct {
 	PacketPipe   chan *protocol.Packet
+	ErrorPipe    chan error
 	Mutex        *sync.Mutex
 	IsSending    bool
 	Net          *Net
@@ -55,6 +57,7 @@ func NewNode(options *NodeOptions) (*Node, error) {
 
 	node := Node{
 		PacketPipe: make(chan *protocol.Packet, 100),
+		ErrorPipe:  make(chan error, 100),
 		Mutex:      mutex,
 		IsSending:  options.IsSending,
 		Net: &Net{
@@ -147,7 +150,7 @@ func (node *Node) Start() {
 	case true:
 		// SENDER
 
-		localIP, err := addr.GetLocalIP()
+		localIP, err := addr.GetLocal()
 		if err != nil {
 			panic(err)
 		}
@@ -164,82 +167,96 @@ func (node *Node) Start() {
 			panic(err)
 		}
 
+		// generate and send encryption key
+		encrKey := encryption.Generate32AESkey()
+		node.Net.EncryptionKey = encrKey
+		fmt.Printf("Generated encryption key: %s\n", encrKey)
+
+		err = sendEncryptionKey(node.Net.Conn, encrKey)
+		if err != nil {
+			panic(err)
+		}
+
 		// listen for incoming packets
 		go receivePackets(node.Net.Conn, node.PacketPipe)
 
 		// send fileoffer
-		go sendFilePacket(node.Net.Conn, file)
+		go sendFilePacket(node.Net.Conn, file, node.Net.EncryptionKey)
 
 		// mainloop
 		for {
-			node.Mutex.Lock()
-			stopped := node.State.Stopped
-			node.Mutex.Unlock()
-
-			if stopped {
-				node.Mutex.Lock()
+			if node.State.Stopped {
 				node.disconnect()
-				node.Mutex.Unlock()
 				break
 			}
 
-			incomingPacket := <-node.PacketPipe
+			incomingPacket, ok := <-node.PacketPipe
+			if !ok {
+				node.State.Stopped = true
+			}
+
+			if node.Net.EncryptionKey != nil {
+				err = incomingPacket.DecryptBody(node.Net.EncryptionKey)
+				if err != nil {
+					panic(err)
+				}
+			}
 
 			switch incomingPacket.Header {
 			case protocol.HeaderReady:
-				node.Mutex.Lock()
 				node.TransferInfo.Ready = true
-				node.Mutex.Unlock()
 
 			case protocol.HeaderAccept:
-				node.Mutex.Lock()
 				node.State.AllowedToTransfer = true
-				node.Mutex.Unlock()
-				go fmt.Printf("Transfer allowed. Sending...\n")
+
+				fmt.Printf("Transfer allowed. Sending...\n")
 
 			case protocol.HeaderDisconnecting:
-				node.Mutex.Lock()
 				node.State.Stopped = true
-				node.Mutex.Unlock()
-				go fmt.Printf("%s disconnected\n", node.Net.Conn.RemoteAddr())
+
+				fmt.Printf("%s disconnected\n", node.Net.Conn.RemoteAddr())
 
 			case protocol.HeaderReject:
-				node.Mutex.Lock()
 				node.State.Stopped = true
-				node.Mutex.Unlock()
-				go fmt.Printf("Transfer rejected. Disconnecting...")
+
+				fmt.Printf("Transfer rejected. Disconnecting...")
 			}
 
-			if node.State.AllowedToTransfer {
-				err = sendPiece(file, node.Net.Conn)
+			if node.State.AllowedToTransfer || node.TransferInfo.Ready {
+				err = sendPiece(file, node.Net.Conn, node.Net.EncryptionKey)
 				if err != nil {
 					if err == ErrorSentAll {
 						// the file has been sent fully
 						fileIDBuff := new(bytes.Buffer)
 						err = binary.Write(fileIDBuff, binary.BigEndian, file.ID)
 						if err != nil {
-							node.Mutex.Lock()
-							node.State.Stopped = true
-							node.Mutex.Unlock()
+							panic(err)
 						}
 
-						protocol.SendPacket(node.Net.Conn, protocol.Packet{
+						endFilePacket := protocol.Packet{
 							Header: protocol.HeaderEndfile,
 							Body:   fileIDBuff.Bytes(),
-						})
+						}
 
-						node.Mutex.Lock()
+						if node.Net.EncryptionKey != nil {
+							err = endFilePacket.EncryptBody(node.Net.EncryptionKey)
+							if err != nil {
+								panic(err)
+							}
+						}
+
+						protocol.SendPacket(node.Net.Conn, endFilePacket)
+
 						node.State.Stopped = true
-						node.Mutex.Unlock()
 					} else {
-						node.Mutex.Lock()
 						node.State.Stopped = true
-						node.Mutex.Unlock()
 
 						fmt.Printf("An error occured when sending a piece of \"%s\": %s\n", file.Name, err)
 						panic(err)
 					}
 				}
+
+				node.TransferInfo.Ready = false
 			}
 		}
 
@@ -257,14 +274,8 @@ func (node *Node) Start() {
 
 		// mainloop
 		for {
-			node.Mutex.Lock()
-			stopped := node.State.Stopped
-			node.Mutex.Unlock()
-
-			if stopped {
-				node.Mutex.Lock()
+			if node.State.Stopped {
 				node.disconnect()
-				node.Mutex.Unlock()
 				break
 			}
 
@@ -272,8 +283,15 @@ func (node *Node) Start() {
 			if !ok {
 				break
 			}
+			if node.Net.EncryptionKey != nil {
+				err = incomingPacket.DecryptBody(node.Net.EncryptionKey)
+				if err != nil {
+					panic(err)
+				}
+			}
 
 			switch incomingPacket.Header {
+
 			case protocol.HeaderFile:
 				go func() {
 					file, err := decodeFilePacket(incomingPacket)
@@ -311,11 +329,27 @@ func (node *Node) Start() {
 						file.Path = fullFilePath
 						file.Open()
 
-						node.Mutex.Lock()
 						node.TransferInfo.AcceptedFiles = append(node.TransferInfo.AcceptedFiles, file)
-						node.Mutex.Unlock()
 
-						// notify the node that we`re ready to transportation
+						// send aceptance packet
+						acceptancePacket := protocol.Packet{
+							Header: protocol.HeaderAccept,
+							Body:   responsePacketFileIDBuffer.Bytes(),
+						}
+						if node.Net.EncryptionKey != nil {
+							err = acceptancePacket.EncryptBody(node.Net.EncryptionKey)
+							if err != nil {
+								panic(err)
+							}
+						}
+
+						err = protocol.SendPacket(node.Net.Conn, acceptancePacket)
+						if err != nil {
+							panic(err)
+						}
+
+						// notify the node that we`re ready to transportation. No need
+						// for encryption because the body is nil
 						err = protocol.SendPacket(node.Net.Conn, protocol.Packet{
 							Header: protocol.HeaderReady,
 						})
@@ -323,25 +357,26 @@ func (node *Node) Start() {
 							panic(err)
 						}
 
-						// send aceptance packet
-						protocol.SendPacket(node.Net.Conn, protocol.Packet{
-							Header: protocol.HeaderAccept,
-							Body:   responsePacketFileIDBuffer.Bytes(),
-						})
-
 					} else {
 						// no
-						err = protocol.SendPacket(node.Net.Conn, protocol.Packet{
+						rejectionPacket := protocol.Packet{
 							Header: protocol.HeaderReject,
 							Body:   responsePacketFileIDBuffer.Bytes(),
-						})
+						}
+
+						if node.Net.EncryptionKey != nil {
+							err = rejectionPacket.EncryptBody(node.Net.EncryptionKey)
+							if err != nil {
+								panic(err)
+							}
+						}
+
+						err = protocol.SendPacket(node.Net.Conn, rejectionPacket)
 						if err != nil {
 							panic(err)
 						}
 
-						node.Mutex.Lock()
 						node.State.Stopped = true
-						node.Mutex.Unlock()
 					}
 				}()
 
@@ -354,7 +389,6 @@ func (node *Node) Start() {
 					panic(err)
 				}
 
-				node.Mutex.Lock()
 				for _, acceptedFile := range node.TransferInfo.AcceptedFiles {
 					if acceptedFile.ID == fileID {
 						// accepted
@@ -368,7 +402,6 @@ func (node *Node) Start() {
 						}
 					}
 				}
-				node.Mutex.Unlock()
 
 				err = protocol.SendPacket(node.Net.Conn, protocol.Packet{
 					Header: protocol.HeaderReady,
@@ -385,7 +418,6 @@ func (node *Node) Start() {
 					panic(err)
 				}
 
-				node.Mutex.Lock()
 				for index, acceptedFile := range node.TransferInfo.AcceptedFiles {
 					if acceptedFile.ID == fileID {
 						// accepted
@@ -414,14 +446,23 @@ func (node *Node) Start() {
 				}
 
 				node.State.Stopped = true
-				node.Mutex.Unlock()
+
+			case protocol.HeaderEncryptionKey:
+				// retrieve the key
+				packetReader := bytes.NewReader(incomingPacket.Body)
+
+				var keySize uint64
+				binary.Read(packetReader, binary.BigEndian, &keySize)
+
+				encrKey := make([]byte, keySize)
+				packetReader.Read(encrKey)
+
+				node.Net.EncryptionKey = encrKey
 
 			case protocol.HeaderDisconnecting:
-				node.Mutex.Lock()
 				node.State.Stopped = true
-				node.Mutex.Unlock()
 
-				go fmt.Printf("%s disconnected\n", node.Net.Conn.RemoteAddr())
+				fmt.Printf("%s disconnected\n", node.Net.Conn.RemoteAddr())
 			}
 		}
 

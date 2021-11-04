@@ -7,7 +7,7 @@ import (
 )
 
 // Decrypts encrypted aes data with given key.
-// https://www.melvinvivas.com/how-to-encrypt-and-decrypt-data-using-aes/ - very grateful to the author, THANK YOU.
+// From https://www.melvinvivas.com/how-to-encrypt-and-decrypt-data-using-aes/
 func Decrypt(key, dataToDecrypt []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
