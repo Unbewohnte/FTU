@@ -14,14 +14,10 @@ type Directory struct {
 	Size        uint64
 	Files       []*File
 	Directories []*Directory
+	Checksum    string // Set manually
 }
 
 var ErrorNotDirectory error = fmt.Errorf("not a directory")
-
-// // gets a child directory
-// func getDirChild(path string, parentDir *Directory, recursive bool) (*Directory, error) {
-
-// }
 
 func GetDir(path string, recursive bool) (*Directory, error) {
 	absPath, err := filepath.Abs(path)
@@ -53,7 +49,6 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 		return nil, err
 	}
 
-	// var totalSize uint64 = 0
 	var innerDirs []*Directory
 	var innerFiles []*File
 	for _, entry := range entries {
@@ -94,7 +89,6 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 
 	directory.Directories = innerDirs
 	directory.Files = innerFiles
-	// directory.Size
 
 	return &directory, nil
 }

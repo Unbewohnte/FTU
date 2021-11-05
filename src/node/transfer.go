@@ -3,6 +3,7 @@ package node
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -76,9 +77,36 @@ func sendDirectoryPacket(connection net.Conn, dir *fsys.Directory) error {
 	if connection == nil {
 		return ErrorNotConnected
 	}
+	// DIRECTORY~(dirname size in binary)(dirname)(dirsize)(checksumLengthInBinary)(checksum)
+
+	dirPacketBuffer := new(bytes.Buffer)
+
+	// dirname
+	dirnameLength := uint64(len(dir.Name))
+	err := binary.Write(dirPacketBuffer, binary.BigEndian, &dirnameLength)
+	if err != nil {
+		return err
+	}
+	dirPacketBuffer.Write([]byte(dir.Name))
+
+	// dirsize
+	err = binary.Write(dirPacketBuffer, binary.BigEndian, dir.Size)
+	if err != nil {
+		return err
+	}
+
+	// checksum
+	checksumLength := uint64(len(dir.Checksum))
+	err = binary.Write(dirPacketBuffer, binary.BigEndian, &checksumLength)
+	if err != nil {
+		return err
+	}
+	dirPacketBuffer.Write([]byte(dir.Checksum))
 
 	return nil
 }
+
+var ErrorSentAll error = fmt.Errorf("sent the whole file")
 
 // sends a piece of file to the connection; The next calls will send
 // another piece util the file has been fully sent. If encrKey is not nil - encrypts each packet with

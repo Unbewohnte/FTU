@@ -4,6 +4,7 @@ package node
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"net"
 
 	"github.com/Unbewohnte/ftu/fsys"
@@ -33,6 +34,8 @@ func sendEncryptionKey(connection net.Conn, encrKey []byte) error {
 
 	return nil
 }
+
+var ErrorNotConnected error = fmt.Errorf("not connected")
 
 // Reads packets from connection in an endless loop, sends them to the channel, if encrKey is not nil -
 // decrypts packet`s body beforehand

@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"fmt"
@@ -19,46 +18,42 @@ import (
 	"github.com/Unbewohnte/ftu/protocol"
 )
 
+// node-controlling states
 type NodeInnerStates struct {
-	Stopped           bool
-	Connected         bool
-	AllowedToTransfer bool
+	Stopped           bool // the way to exit the mainloop in case of an external error or a successful end of a transfer
+	AllowedToTransfer bool // the way to notify the mainloop of a sending node to start sending pieces of files
 }
 
+// Network specific settings
 type Net struct {
-	ConnAddr      string
-	Conn          net.Conn
-	Port          uint
-	EncryptionKey []byte
+	ConnAddr      string   // address to connect to. Does not include port
+	Conn          net.Conn // the core TCP connection of the node. Self-explanatory
+	Port          uint     // a port to connect to/listen on
+	EncryptionKey []byte   // if != nil - incoming packets will be decrypted with it and outcoming packets will be encrypted
 }
 
+// Both sending-side and receiving-side information
 type TransferInfo struct {
-	Ready         bool   // is the other node ready to receive another piece
-	ServingPath   string // path to the thing that will be sent
-	Recursive     bool
-	AcceptedFiles []*fsys.File
-	DownloadsPath string
+	Ready         bool         // is the other node ready to receive another piece
+	ServingPath   string       // path to the thing that will be sent
+	Recursive     bool         // recursively send directory
+	AcceptedFiles []*fsys.File // files that`ve been accepted to be received
+	DownloadsPath string       // where to download
 }
 
 // Sender and receiver in one type !
 type Node struct {
-	PacketPipe   chan *protocol.Packet
-	ErrorPipe    chan error
-	Mutex        *sync.Mutex
-	IsSending    bool
+	PacketPipe   chan *protocol.Packet // a way to receive incoming packets from another goroutine
+	IsSending    bool                  // sending or a receiving node
 	Net          *Net
 	State        *NodeInnerStates
 	TransferInfo *TransferInfo
 }
 
-// Creates a new node
+// Creates a new either a sending or receiving node with specified options
 func NewNode(options *NodeOptions) (*Node, error) {
-	mutex := new(sync.Mutex)
-
 	node := Node{
 		PacketPipe: make(chan *protocol.Packet, 100),
-		ErrorPipe:  make(chan error, 100),
-		Mutex:      mutex,
 		IsSending:  options.IsSending,
 		Net: &Net{
 			Port:          options.WorkingPort,
@@ -69,7 +64,6 @@ func NewNode(options *NodeOptions) (*Node, error) {
 		State: &NodeInnerStates{
 			AllowedToTransfer: false,
 			Stopped:           false,
-			Connected:         false,
 		},
 		TransferInfo: &TransferInfo{
 			ServingPath:   options.ServerSide.ServingPath,
@@ -81,14 +75,15 @@ func NewNode(options *NodeOptions) (*Node, error) {
 	return &node, nil
 }
 
-func (node *Node) connect(addr string, port uint) error {
-	if port == 0 {
-		port = node.Net.Port
+// Connect node to another listening one with a pre-defined address&&port
+func (node *Node) connect() error {
+	if node.Net.Port == 0 {
+		node.Net.Port = 7270
 	}
 
-	fmt.Printf("Connecting to %s:%d...\n", addr, port)
+	fmt.Printf("Connecting to %s:%d...\n", node.Net.ConnAddr, node.Net.Port)
 
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", addr, port), time.Second*5)
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", node.Net.ConnAddr, node.Net.Port), time.Second*5)
 	if err != nil {
 		return err
 	}
@@ -96,13 +91,13 @@ func (node *Node) connect(addr string, port uint) error {
 	fmt.Printf("Connected\n")
 
 	node.Net.Conn = conn
-	node.State.Connected = true
 
 	return nil
 }
 
+// Notify the other node and close the connection
 func (node *Node) disconnect() error {
-	if node.State.Connected && node.Net.Conn != nil {
+	if node.Net.Conn != nil {
 		// notify the other node and close the connection
 		err := protocol.SendPacket(node.Net.Conn, protocol.Packet{
 			Header: protocol.HeaderDisconnecting,
@@ -117,13 +112,12 @@ func (node *Node) disconnect() error {
 		}
 
 		node.State.Stopped = true
-		node.State.Connected = false
 	}
 
 	return nil
 }
 
-// Waits for connection on a pre-defined port
+// Wait for a connection on a pre-defined port
 func (node *Node) waitForConnection() error {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", node.Net.Port))
 	if err != nil {
@@ -139,7 +133,6 @@ func (node *Node) waitForConnection() error {
 	fmt.Printf("New connection from %s\n", connection.RemoteAddr().String())
 
 	node.Net.Conn = connection
-	node.State.Connected = true
 
 	return nil
 }
@@ -150,6 +143,7 @@ func (node *Node) Start() {
 	case true:
 		// SENDER
 
+		// retrieve necessary information, wait for connection
 		localIP, err := addr.GetLocal()
 		if err != nil {
 			panic(err)
@@ -180,7 +174,7 @@ func (node *Node) Start() {
 		// listen for incoming packets
 		go receivePackets(node.Net.Conn, node.PacketPipe)
 
-		// send fileoffer
+		// send info on file/directory
 		go sendFilePacket(node.Net.Conn, file, node.Net.EncryptionKey)
 
 		// mainloop
@@ -190,6 +184,7 @@ func (node *Node) Start() {
 				break
 			}
 
+			// receive incoming packets and decrypt them if necessary
 			incomingPacket, ok := <-node.PacketPipe
 			if !ok {
 				node.State.Stopped = true
@@ -202,8 +197,10 @@ func (node *Node) Start() {
 				}
 			}
 
+			// react based on a header of a received packet
 			switch incomingPacket.Header {
 			case protocol.HeaderReady:
+				// the other node is ready to receive file data
 				node.TransferInfo.Ready = true
 
 			case protocol.HeaderAccept:
@@ -211,18 +208,20 @@ func (node *Node) Start() {
 
 				fmt.Printf("Transfer allowed. Sending...\n")
 
-			case protocol.HeaderDisconnecting:
-				node.State.Stopped = true
-
-				fmt.Printf("%s disconnected\n", node.Net.Conn.RemoteAddr())
-
 			case protocol.HeaderReject:
 				node.State.Stopped = true
 
 				fmt.Printf("Transfer rejected. Disconnecting...")
+
+			case protocol.HeaderDisconnecting:
+				node.State.Stopped = true
+
+				fmt.Printf("%s disconnected\n", node.Net.Conn.RemoteAddr())
 			}
 
-			if node.State.AllowedToTransfer || node.TransferInfo.Ready {
+			// if allowed to transfer and the other node is ready to receive packets - send one piece
+			// and wait for it to be ready again
+			if node.State.AllowedToTransfer && node.TransferInfo.Ready {
 				err = sendPiece(file, node.Net.Conn, node.Net.EncryptionKey)
 				if err != nil {
 					if err == ErrorSentAll {
@@ -264,7 +263,7 @@ func (node *Node) Start() {
 		// RECEIVER
 
 		// connect to the sending node
-		err := node.connect(node.Net.ConnAddr, node.Net.Port)
+		err := node.connect()
 		if err != nil {
 			fmt.Printf("Could not connect to %s:%d\n", node.Net.ConnAddr, node.Net.Port)
 			os.Exit(-1)
@@ -280,6 +279,7 @@ func (node *Node) Start() {
 				break
 			}
 
+			// receive incoming packets and decrypt them if necessary
 			incomingPacket, ok := <-node.PacketPipe
 			if !ok {
 				break
@@ -291,9 +291,11 @@ func (node *Node) Start() {
 				}
 			}
 
+			// react based on a header of a received packet
 			switch incomingPacket.Header {
 
 			case protocol.HeaderFile:
+				// process an information about a singe file. Accept or reject the transfer
 				go func() {
 					file, err := decodeFilePacket(incomingPacket)
 					if err != nil {
@@ -404,6 +406,7 @@ func (node *Node) Start() {
 					}
 				}
 
+				// notify the other one that this node is ready
 				err = protocol.SendPacket(node.Net.Conn, protocol.Packet{
 					Header: protocol.HeaderReady,
 				})
@@ -412,6 +415,10 @@ func (node *Node) Start() {
 				}
 
 			case protocol.HeaderEndfile:
+				// one of the files has been received completely,
+				// compare checksums and check if it is the last
+				// file in the transfer
+				// (TODO)
 				fileIDReader := bytes.NewReader(incomingPacket.Body)
 				var fileID uint64
 				err := binary.Read(fileIDReader, binary.BigEndian, &fileID)
