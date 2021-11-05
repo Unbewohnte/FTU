@@ -246,6 +246,12 @@ func (node *Node) Start() {
 
 						protocol.SendPacket(node.Net.Conn, endFilePacket)
 
+						// because there`s still no handling for directories - send
+						// done packet
+						protocol.SendPacket(node.Net.Conn, protocol.Packet{
+							Header: protocol.HeaderDone,
+						})
+
 						node.State.Stopped = true
 					} else {
 						node.State.Stopped = true
@@ -302,7 +308,7 @@ func (node *Node) Start() {
 						panic(err)
 					}
 
-					fmt.Printf("| ID: %d\n| Filename: %s\n| Size: %.2f MB\n| Checksum: %s\n", file.ID, file.Name, float32(file.Size)/1024/1024, file.Checksum)
+					fmt.Printf("| Filename: %s\n| Size: %.2f MB\n| Checksum: %s\n", file.Name, float32(file.Size)/1024/1024, file.Checksum)
 					var answer string
 					fmt.Printf("| Download ? [Y/n]: ")
 					fmt.Scanln(&answer)
@@ -453,7 +459,7 @@ func (node *Node) Start() {
 					}
 				}
 
-				node.State.Stopped = true
+				// node.State.Stopped = true
 
 			case protocol.HeaderEncryptionKey:
 				// retrieve the key
@@ -466,6 +472,9 @@ func (node *Node) Start() {
 				packetReader.Read(encrKey)
 
 				node.Net.EncryptionKey = encrKey
+
+			case protocol.HeaderDone:
+				node.State.Stopped = true
 
 			case protocol.HeaderDisconnecting:
 				node.State.Stopped = true
