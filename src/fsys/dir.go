@@ -11,11 +11,17 @@ type Directory struct {
 	Name        string
 	Path        string
 	ParentPath  string
+	Size        uint64
 	Files       []*File
 	Directories []*Directory
 }
 
 var ErrorNotDirectory error = fmt.Errorf("not a directory")
+
+// // gets a child directory
+// func getDirChild(path string, parentDir *Directory, recursive bool) (*Directory, error) {
+
+// }
 
 func GetDir(path string, recursive bool) (*Directory, error) {
 	absPath, err := filepath.Abs(path)
@@ -33,12 +39,21 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 		return nil, ErrorNotDirectory
 	}
 
+	directory := Directory{
+		Name:        stats.Name(),
+		Path:        absPath,
+		ParentPath:  filepath.Dir(absPath),
+		Directories: nil,
+		Files:       nil,
+	}
+
 	// loop through each entry in the directory
 	entries, err := os.ReadDir(absPath)
 	if err != nil {
 		return nil, err
 	}
 
+	// var totalSize uint64 = 0
 	var innerDirs []*Directory
 	var innerFiles []*File
 	for _, entry := range entries {
@@ -58,8 +73,10 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 				}
 
 				innerDirs = append(innerDirs, innerDir)
+
+				directory.Size += innerDir.Size
 			}
-			// if not - skip the directory
+			// if not - skip the directory and only work with the files
 
 		} else {
 			innerFilePath := filepath.Join(absPath, entryInfo.Name())
@@ -70,16 +87,14 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 			}
 
 			innerFiles = append(innerFiles, innerFile)
+
+			directory.Size += innerFile.Size
 		}
 	}
 
-	directory := Directory{
-		Name:        stats.Name(),
-		Path:        absPath,
-		ParentPath:  filepath.Dir(absPath),
-		Directories: innerDirs,
-		Files:       innerFiles,
-	}
+	directory.Directories = innerDirs
+	directory.Files = innerFiles
+	// directory.Size
 
 	return &directory, nil
 }

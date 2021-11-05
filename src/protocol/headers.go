@@ -10,20 +10,20 @@ type Header string
 // ENCRKEY.
 // The FIRST header to be sent. Sent immediately after the connection has been established
 // by sender. Body contains a size of a key and the key itself.
-// ie: ENCRKEY~(size)(SUPER SECURE ENCRYPTION KEY)
+// ie: ENCRKEY~(size)(encryption key)
 const HeaderEncryptionKey Header = "ENCRKEY"
 
 // REJECT.
 // Sent only by receiver if the receiver has decided to not download the contents.
 // The body must contain a file ID in binary.
-// ie: REJECT~1111011
+// ie: REJECT~(file id in binary)
 const HeaderReject Header = "REJECT"
 
 // ACCEPT.
 // The opposite of the previous REJECT. Sent by receiver when
 // he has agreed to download the file|directory. The body must contain
 // the ID of a file in binary that is allowed to upload
-// ie: ACCEPT~1111011
+// ie: ACCEPT~(file id in binary)
 const HeaderAccept Header = "ACCEPT"
 
 // DONE.
@@ -54,20 +54,22 @@ const HeaderDisconnecting Header = "BYE!"
 // FILE.
 // Sent by sender, indicating that the file is going to be sent.
 // The body structure must follow such structure:
-// FILE~(idInBinary)(filenameLengthInBinary)(filename)(filesize)(checksumLengthInBinary)checksum
+// FILE~(id in binary)(filename length in binary)(filename)(filesize)(checksum length in binary)(checksum)
 const HeaderFile Header = "FILE"
 
 // FILEBYTES.
 // Sent only by sender. The packet`s body must contain
 // a file`s Identifier and a portion of its bytes.
-// ie: FILEBYTES~(fileIDinBinary)(File`sBinaryData)
+// ie: FILEBYTES~(file ID in binary)(file`s binary data)
 const HeaderFileBytes Header = "FILEBYTES"
 
 // ENDFILE
 // Sent by sender when the file`s contents fully has been sent.
 // The body must contain a file ID.
-// ie: ENDFILE~(fileIDIinBinary)
+// ie: ENDFILE~(file ID in binary)
 const HeaderEndfile Header = "ENDFILE"
 
-// DIRECTORY. (TODO)
+// DIRECTORY
+// If used the first time
+// ie: DIRECTORY~(dirname size in binary)(dirname)(dirsize)(checksumLengthInBinary)(checksum)
 const HeaderDirectory Header = "DIRECTORY"

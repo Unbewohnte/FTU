@@ -266,7 +266,8 @@ func (node *Node) Start() {
 		// connect to the sending node
 		err := node.connect(node.Net.ConnAddr, node.Net.Port)
 		if err != nil {
-			panic(err)
+			fmt.Printf("Could not connect to %s:%d\n", node.Net.ConnAddr, node.Net.Port)
+			os.Exit(-1)
 		}
 
 		// listen for incoming packets
