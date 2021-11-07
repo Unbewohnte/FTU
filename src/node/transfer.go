@@ -24,7 +24,7 @@ func sendFilePacket(connection net.Conn, file *fsys.File, encrKey []byte) error 
 		return err
 	}
 
-	// FILE~(idInBinary)(filenameLengthInBinary)(filename)(filesize)(checksumLengthInBinary)checksum
+	// FILE~(idInBinary)(filenameLengthInBinary)(filename)(filesize)(checksumLengthInBinary)(checksum)
 
 	// send file packet with file description
 	filePacket := protocol.Packet{
@@ -69,14 +69,22 @@ func sendFilePacket(connection net.Conn, file *fsys.File, encrKey []byte) error 
 		return err
 	}
 
+	// we do not check for packet size because there is no way that it`ll exceed current
+	// maximum of 128 KiB
 	return nil
 }
 
-// sends a notification about the directory
-func sendDirectoryPacket(connection net.Conn, dir *fsys.Directory) error {
+// sends a notification about the directory. If encrkey != nil - encrypts
+// packet`s body
+func sendDirectoryPacket(connection net.Conn, dir *fsys.Directory, encrKey []byte) error {
 	if connection == nil {
 		return ErrorNotConnected
 	}
+
+	dirPacket := protocol.Packet{
+		Header: protocol.HeaderDirectory,
+	}
+
 	// DIRECTORY~(dirname size in binary)(dirname)(dirsize)(checksumLengthInBinary)(checksum)
 
 	dirPacketBuffer := new(bytes.Buffer)
@@ -103,6 +111,24 @@ func sendDirectoryPacket(connection net.Conn, dir *fsys.Directory) error {
 	}
 	dirPacketBuffer.Write([]byte(dir.Checksum))
 
+	dirPacket.Body = dirPacketBuffer.Bytes()
+
+	if encrKey != nil {
+		// if the key is given - encrypt ready-to-go packet
+		err = dirPacket.EncryptBody(encrKey)
+		if err != nil {
+			return err
+		}
+	}
+
+	// and send it
+	err = protocol.SendPacket(connection, dirPacket)
+	if err != nil {
+		return err
+	}
+
+	// we do not check for packet size because there is no way that it`ll exceed current
+	// maximum of 128 KiB
 	return nil
 }
 
