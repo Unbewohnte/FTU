@@ -4,7 +4,7 @@
 ---
 
 ## ● What is that ?
-A P2P file sharing program, but overcomplicated and probably an overengineered one.
+A feature-poor P2P (decentralized) file sharing program, overcomplicated and an overengineered one.
 
 
 ## ● Why ?
@@ -16,7 +16,7 @@ In order to transfer one file on one computer to another - they need to establis
 
 In order to establish a connection - there needs to be a 1) sender (server) (the owner of the file), waiting for connections, and a 2) receiver (client), who will try to connect to a sender (server). If the requirements are met - client will connect to server and the packet exchange will begin.
  
-The server and the client needs to communicate with packets according to certain rules, given by a [protocol](https://github.com/Unbewohnte/ftu/tree/main/protocol).
+The server and the client needs to communicate with packets according to certain rules, given by a [protocol](https://github.com/Unbewohnte/ftu/tree/main/src/protocol).
 
 The packet has its header and body. They are divided into several groups of use by headers, this way we can specify what kind of data is stored inside packet`s body and react accordingly.
 
@@ -31,13 +31,13 @@ Thus, with a connection and a way of communication, the sender will send some pa
 - Proceed to [releases page](https://github.com/Unbewohnte/ftu/releases)
 - Choose a version/architecture you have and download an archive
 - Unpack an archive
-- If on GNU/Linux - run `sudo make install`
+- If on GNU/Linux - run `chmod +x install.sh && sudo ./install.sh`
 
 ### ● From source (Compile it yourself) (You need [Go](https://golang.org/dl/) and [git](https://git-scm.com/) to be installed on your machine)
 - `git clone https://github.com/Unbewohnte/ftu.git`
 - `cd` into the folder
-- `make`
-- If on GNU/Linux - run `sudo make install` 
+- If on GNU/Linux - run `make && sudo make install` or `make && chmod +x install.sh && sudo ./install`
+- else - cd into src/ folder and simply run `go build`; after that you`re free to put the binary wherever you desire 
 
 Now you have ftu installed !
 
@@ -67,10 +67,10 @@ creates a node that will connect to 192.168.1.104:7277 and download served file|
 `ftu -p 7277 -a 192.168.1.104 -d /home/user/Downloads/`
 creates a node that will connect to 192.168.1.104:7277 and download served file|directory to "/home/user/Downloads/"
 
-`ftu -s /home/user/homework`
+`ftu -s /home/user/homework` (TODO)
 creates a node that will send every file in the directory
 
-`ftu -r -s /home/user/homework/`
+`ftu -r -s /home/user/homework/` (TODO)
 creates a node that will send every file in the directory !RECUSRIVELY!
 
 ---
@@ -85,10 +85,15 @@ In 'src' directory:
 
 ---
 
-## ● IMPORTANT NOTE
-This is NOT intended to be a serious application. I'm learning and this is a product of my curiosity. If you're a beginner too, please don't try to find something useful in my code, I am not an expert.
+## ● NOTE
+This is NOT intended to be a serious application. I'm learning and this is a product of my curiosity. If you're a beginner too, please don't try to find something useful in my code, I am not an expert in that regard.
 
-Also, this utility only works if the server side has a port-forwarding|virtual server enabled and configured. Fortunatelly, locally it works without any port-forwarding|virtual servers.
+This utility works only if the sender side has a port-forwarding|virtual server enabled and configured. Fortunatelly, locally it works without any 
+additional set ups.
+
+I've created myself a lot of additional work by creating my own set of communication rules. The whole project could've been a lot easier to maintain
+and read if I've used a built-in, well-tested and easily integrated solutions, but I still enjoy it the way it is right now. I couldn't be able to
+learn so much and get practical experience by simply using http, ftp or whatever protocols there are out there.
 
 ---
 
@@ -101,4 +106,4 @@ MIT
 
 ## ● TODO
 - Send directory
-- Wire back encryption
+- ~~Wire back encryption~~

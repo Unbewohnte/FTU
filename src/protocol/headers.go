@@ -6,6 +6,7 @@ type Header string
 // Headers
 
 //// In the following examples "~" is the HEADERDELIMETER
+//// and (size) is 8 bytes long binary encoded uint64
 
 // ENCRKEY.
 // The FIRST header to be sent. Sent immediately after the connection has been established
@@ -70,6 +71,7 @@ const HeaderFileBytes Header = "FILEBYTES"
 const HeaderEndfile Header = "ENDFILE"
 
 // DIRECTORY
-// If used the first time
+// Sent by sender, indicates that a directory with current information
+// is going to be sent. The structure of the body must follow the example:
 // ie: DIRECTORY~(dirname size in binary)(dirname)(dirsize)(checksumLengthInBinary)(checksum)
 const HeaderDirectory Header = "DIRECTORY"

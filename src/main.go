@@ -63,7 +63,7 @@ func init() {
 
 	// validate flags
 	if *SEND == "" && *ADDRESS == "" {
-		fmt.Printf("Neither sending nor receiving flag was specified. Run ftu -h for help")
+		fmt.Printf("Neither sending nor receiving flag was specified. Run ftu -h for help\n")
 		os.Exit(-1)
 	}
 
