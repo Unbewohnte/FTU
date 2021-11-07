@@ -223,42 +223,44 @@ func (node *Node) Start() {
 			// and wait for it to be ready again
 			if node.State.AllowedToTransfer && node.TransferInfo.Ready {
 				err = sendPiece(file, node.Net.Conn, node.Net.EncryptionKey)
-				if err != nil {
-					if err == ErrorSentAll {
-						// the file has been sent fully
-						fileIDBuff := new(bytes.Buffer)
-						err = binary.Write(fileIDBuff, binary.BigEndian, file.ID)
+				switch err {
+				case ErrorSentAll:
+					// the file has been sent fully
+					fileIDBuff := new(bytes.Buffer)
+					err = binary.Write(fileIDBuff, binary.BigEndian, file.ID)
+					if err != nil {
+						panic(err)
+					}
+
+					endFilePacket := protocol.Packet{
+						Header: protocol.HeaderEndfile,
+						Body:   fileIDBuff.Bytes(),
+					}
+
+					if node.Net.EncryptionKey != nil {
+						err = endFilePacket.EncryptBody(node.Net.EncryptionKey)
 						if err != nil {
 							panic(err)
 						}
-
-						endFilePacket := protocol.Packet{
-							Header: protocol.HeaderEndfile,
-							Body:   fileIDBuff.Bytes(),
-						}
-
-						if node.Net.EncryptionKey != nil {
-							err = endFilePacket.EncryptBody(node.Net.EncryptionKey)
-							if err != nil {
-								panic(err)
-							}
-						}
-
-						protocol.SendPacket(node.Net.Conn, endFilePacket)
-
-						// because there`s still no handling for directories - send
-						// done packet
-						protocol.SendPacket(node.Net.Conn, protocol.Packet{
-							Header: protocol.HeaderDone,
-						})
-
-						node.State.Stopped = true
-					} else {
-						node.State.Stopped = true
-
-						fmt.Printf("An error occured when sending a piece of \"%s\": %s\n", file.Name, err)
-						panic(err)
 					}
+
+					protocol.SendPacket(node.Net.Conn, endFilePacket)
+
+					// because there`s still no handling for directories - send
+					// done packet
+					protocol.SendPacket(node.Net.Conn, protocol.Packet{
+						Header: protocol.HeaderDone,
+					})
+
+					node.State.Stopped = true
+
+				case nil:
+
+				default:
+					node.State.Stopped = true
+
+					fmt.Printf("An error occured while sending a piece of \"%s\": %s\n", file.Name, err)
+					panic(err)
 				}
 
 				node.TransferInfo.Ready = false
