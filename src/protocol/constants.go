@@ -1,4 +1,4 @@
-// This file contains global constants of the protocol
+// global constants of the protocol
 package protocol
 
 // MAXPACKETSIZE.
@@ -8,5 +8,11 @@ const MAXPACKETSIZE uint = 131072 // 128 KiB
 
 // HEADERDELIMETER.
 // Character that delimits header of the packet from the body of the packet.
-// ie: FILEINFO~img.png
+// ie: (packet header)~(packet body)
 const HEADERDELIMETER string = "~"
+
+// FILECODE.
+const FILECODE string = "f"
+
+// DIRCODE.
+const DIRCODE string = "d"

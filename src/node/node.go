@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"fmt"
@@ -54,6 +55,7 @@ type transferInfo struct {
 
 // Sender and receiver in one type !
 type Node struct {
+	mutex        *sync.Mutex
 	packetPipe   chan *protocol.Packet // a way to receive incoming packets from another goroutine
 	isSending    bool                  // sending or a receiving node
 	netInfo      *netInfoInfo
@@ -81,6 +83,7 @@ func NewNode(options *NodeOptions) (*Node, error) {
 	}
 
 	node := Node{
+		mutex:      &sync.Mutex{},
 		packetPipe: make(chan *protocol.Packet, 100),
 		isSending:  options.IsSending,
 		netInfo: &netInfoInfo{
@@ -176,12 +179,12 @@ func (node *Node) Start() {
 	case true:
 		// SENDER
 
-		// retrieve necessary information, wait for connection
 		localIP, err := addr.GetLocal()
 		if err != nil {
 			panic(err)
 		}
 
+		// retrieve information about the file|directory
 		var file *fsys.File
 		var dir *fsys.Directory
 		switch node.transferInfo.Sending.IsDirectory {
@@ -197,7 +200,12 @@ func (node *Node) Start() {
 			}
 		}
 
-		fmt.Printf("Sending \"%s\" (%.2f MB) locally on %s:%d\n", file.Name, float32(file.Size)/1024/1024, localIP, node.netInfo.Port)
+		if dir != nil {
+			fmt.Printf("Sending \"%s\" (%.2f MB) locally on %s:%d\n", dir.Name, float32(dir.Size)/1024/1024, localIP, node.netInfo.Port)
+		} else {
+			fmt.Printf("Sending \"%s\" (%.2f MB) locally on %s:%d\n", file.Name, float32(file.Size)/1024/1024, localIP, node.netInfo.Port)
+
+		}
 
 		// wain for another node to connect
 		err = node.waitForConnection()
@@ -210,20 +218,16 @@ func (node *Node) Start() {
 		node.netInfo.EncryptionKey = encrKey
 		fmt.Printf("Generated encryption key: %s\n", encrKey)
 
-		err = sendEncryptionKey(node.netInfo.Conn, encrKey)
+		err = protocol.SendEncryptionKey(node.netInfo.Conn, encrKey)
 		if err != nil {
 			panic(err)
 		}
 
 		// listen for incoming packets
-		go receivePackets(node.netInfo.Conn, node.packetPipe)
+		go protocol.ReceivePackets(node.netInfo.Conn, node.packetPipe)
 
-		// send info on file/directory
-		if dir != nil {
-			go sendDirectoryPacket(node.netInfo.Conn, dir, node.netInfo.EncryptionKey)
-		} else {
-			go sendFilePacket(node.netInfo.Conn, file, node.netInfo.EncryptionKey)
-		}
+		// send info about file/directory
+		go protocol.SendTransferOffer(node.netInfo.Conn, file, dir, node.netInfo.EncryptionKey)
 
 		// mainloop
 		for {
@@ -238,6 +242,7 @@ func (node *Node) Start() {
 				node.state.Stopped = true
 			}
 
+			// if encryption key is set - decrypt packet on the spot
 			if node.netInfo.EncryptionKey != nil {
 				err = incomingPacket.DecryptBody(node.netInfo.EncryptionKey)
 				if err != nil {
@@ -281,10 +286,10 @@ func (node *Node) Start() {
 					}
 
 				case false:
-					// sending a single file
-					err = sendPiece(file, node.netInfo.Conn, node.netInfo.EncryptionKey)
+					// sending a piece of a single file
+					err = protocol.SendPiece(file, node.netInfo.Conn, node.netInfo.EncryptionKey)
 					switch err {
-					case ErrorSentAll:
+					case protocol.ErrorSentAll:
 						// the file has been sent fully
 						fileIDBuff := new(bytes.Buffer)
 						err = binary.Write(fileIDBuff, binary.BigEndian, file.ID)
@@ -312,9 +317,12 @@ func (node *Node) Start() {
 							Header: protocol.HeaderDone,
 						})
 
+						fmt.Printf("Transfer ended successfully\n")
+
 						node.state.Stopped = true
 
 					case nil:
+						break
 
 					default:
 						node.state.Stopped = true
@@ -340,11 +348,15 @@ func (node *Node) Start() {
 		}
 
 		// listen for incoming packets
-		go receivePackets(node.netInfo.Conn, node.packetPipe)
+		go protocol.ReceivePackets(node.netInfo.Conn, node.packetPipe)
 
 		// mainloop
 		for {
-			if node.state.Stopped {
+			node.mutex.Lock()
+			stopped := node.state.Stopped
+			node.mutex.Unlock()
+
+			if stopped {
 				node.disconnect()
 				break
 			}
@@ -354,6 +366,8 @@ func (node *Node) Start() {
 			if !ok {
 				break
 			}
+
+			// if encryption key is set - decrypt packet on the spot
 			if node.netInfo.EncryptionKey != nil {
 				err = incomingPacket.DecryptBody(node.netInfo.EncryptionKey)
 				if err != nil {
@@ -364,51 +378,71 @@ func (node *Node) Start() {
 			// react based on a header of a received packet
 			switch incomingPacket.Header {
 
-			case protocol.HeaderFile:
-				// process an information about a singe file. Accept or reject the transfer
+			case protocol.HeaderTransferOffer:
+				// accept of reject offer
 				go func() {
-					file, err := decodeFilePacket(incomingPacket)
+					file, dir, err := protocol.DecodeTransferPacket(incomingPacket)
 					if err != nil {
 						panic(err)
 					}
 
-					fmt.Printf("| Filename: %s\n| Size: %.2f MB\n| Checksum: %s\n", file.Name, float32(file.Size)/1024/1024, file.Checksum)
+					if file != nil {
+						fmt.Printf("\n| Filename: %s\n| Size: %.2f MB\n| Checksum: %s\n", file.Name, float32(file.Size)/1024/1024, file.Checksum)
+					} else if dir != nil {
+						fmt.Printf("\n| Directory name: %s\n| Size: %.2f MB\n", dir.Name, float32(dir.Size)/1024/1024)
+					}
+
 					var answer string
 					fmt.Printf("| Download ? [Y/n]: ")
 					fmt.Scanln(&answer)
 					fmt.Printf("\n\n")
 
-					responsePacketFileIDBuffer := new(bytes.Buffer)
-					binary.Write(responsePacketFileIDBuffer, binary.BigEndian, file.ID)
-
 					if strings.EqualFold(answer, "y") || answer == "" {
 						// yes
 
-						err = os.MkdirAll(node.transferInfo.Receiving.DownloadsPath, os.ModePerm)
-						if err != nil {
-							panic(err)
+						if file != nil {
+							// file
+							err = os.MkdirAll(filepath.Join(node.transferInfo.Receiving.DownloadsPath), os.ModePerm)
+							if err != nil {
+								panic(err)
+							}
+							fullFilePath := filepath.Join(node.transferInfo.Receiving.DownloadsPath, file.Name)
+
+							// check if the file already exists; if yes - remove it and replace with a new one
+							_, err := os.Stat(fullFilePath)
+							if err == nil {
+								// exists
+								// remove it
+								os.Remove(fullFilePath)
+							}
+
+							file.Path = fullFilePath
+							file.Open()
+
+							node.mutex.Lock()
+							node.transferInfo.Receiving.AcceptedFiles = append(node.transferInfo.Receiving.AcceptedFiles, file)
+							node.mutex.Unlock()
+
+						} else if dir != nil {
+							// directory
+
+							// add a new directory to downloads path
+							node.transferInfo.Receiving.DownloadsPath = filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name)
+							err = os.MkdirAll(node.transferInfo.Receiving.DownloadsPath, os.ModePerm)
+							if err != nil {
+								panic(err)
+							}
 						}
-
-						fullFilePath := filepath.Join(node.transferInfo.Receiving.DownloadsPath, file.Name)
-
-						// check if the file already exists; if yes - remove it and replace with a new one
-						_, err := os.Stat(fullFilePath)
-						if err == nil {
-							// exists
-							// remove it
-							os.Remove(fullFilePath)
-						}
-
-						file.Path = fullFilePath
-						file.Open()
-
-						node.transferInfo.Receiving.AcceptedFiles = append(node.transferInfo.Receiving.AcceptedFiles, file)
 
 						// send aceptance packet
+						responsePacketFileIDBuffer := new(bytes.Buffer)
+						binary.Write(responsePacketFileIDBuffer, binary.BigEndian, file.ID)
+
 						acceptancePacket := protocol.Packet{
 							Header: protocol.HeaderAccept,
 							Body:   responsePacketFileIDBuffer.Bytes(),
 						}
+
 						if node.netInfo.EncryptionKey != nil {
 							err = acceptancePacket.EncryptBody(node.netInfo.EncryptionKey)
 							if err != nil {
@@ -432,6 +466,9 @@ func (node *Node) Start() {
 
 					} else {
 						// no
+						responsePacketFileIDBuffer := new(bytes.Buffer)
+						binary.Write(responsePacketFileIDBuffer, binary.BigEndian, file.ID)
+
 						rejectionPacket := protocol.Packet{
 							Header: protocol.HeaderReject,
 							Body:   responsePacketFileIDBuffer.Bytes(),
@@ -449,9 +486,15 @@ func (node *Node) Start() {
 							panic(err)
 						}
 
+						node.mutex.Lock()
 						node.state.Stopped = true
+						node.mutex.Unlock()
 					}
 				}()
+
+			case protocol.HeaderFile:
+				// process an information about a singe file
+				// (TODO)
 
 			case protocol.HeaderFileBytes:
 				// check if this file has been accepted to receive
@@ -537,11 +580,17 @@ func (node *Node) Start() {
 
 				node.netInfo.EncryptionKey = encrKey
 
+				fmt.Printf("Got an encryption key: %s\n", encrKey)
+
 			case protocol.HeaderDone:
+				node.mutex.Lock()
 				node.state.Stopped = true
+				node.mutex.Unlock()
 
 			case protocol.HeaderDisconnecting:
+				node.mutex.Lock()
 				node.state.Stopped = true
+				node.mutex.Unlock()
 
 				fmt.Printf("%s disconnected\n", node.netInfo.Conn.RemoteAddr())
 			}

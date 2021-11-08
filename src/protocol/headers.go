@@ -6,7 +6,7 @@ type Header string
 // Headers
 
 //// In the following examples "~" is the HEADERDELIMETER
-//// and (size) is 8 bytes long binary encoded uint64
+//// and (size) is 8 bytes long big-endian binary encoded uint64
 
 // ENCRKEY.
 // The FIRST header to be sent. Sent immediately after the connection has been established
@@ -52,6 +52,18 @@ const HeaderReady Header = "READY"
 // ie: BYE!~
 const HeaderDisconnecting Header = "BYE!"
 
+// TRANSFEROFFER.
+// Sent by sender AFTER ENCRKEY packet if present and BEFORE any other transfer-specific
+// packet ONLY ONCE. Asks the receiving node whether it accepts or rejects the transfer of
+// offered single file or a directory.
+// The body must contain a file or directory code that tells whether
+// a file or a directory will be sent in case of acceptance. The rest must be identical either to the FILE or DIRECTORY packet.
+// e for directory: TRANSFER~(dircode)(dirname size in binary)(dirname)(dirsize)
+// e for a single file: TRANSFER~(filecode)(id in binary)(filename length in binary)(filename)(filesize)(checksum length in binary)(checksum)
+// dircode and filecode are pre-declared in the constants of the protocol (d) and (f).
+// The actual transfer must start only after the other node has accepted the dir/file with ACCEPT packet.
+const HeaderTransferOffer Header = "TRANSFEROFFER"
+
 // FILE.
 // Sent by sender, indicating that the file is going to be sent.
 // The body structure must follow such structure:
@@ -73,5 +85,5 @@ const HeaderEndfile Header = "ENDFILE"
 // DIRECTORY
 // Sent by sender, indicates that a directory with current information
 // is going to be sent. The structure of the body must follow the example:
-// ie: DIRECTORY~(dirname size in binary)(dirname)(dirsize)(checksumLengthInBinary)(checksum)
+// ie: DIRECTORY~(dirname size in binary)(dirname)(dirsize)
 const HeaderDirectory Header = "DIRECTORY"

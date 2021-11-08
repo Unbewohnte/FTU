@@ -1,7 +1,7 @@
-// This file describes the general packet structure and provides methods to work with them before|after the transportation
+// General packet structure and methods to work with them before|after the transportation
 
-// General packet structure:
-// (size of the whole packet in binary)(packet header)(header delimeter (~))(packet contents)
+// Packet structure during transportation:
+// (size of the whole packet in binary (big endian uint64))(packet header)(header delimeter (~))(packet contents)
 
 package protocol
 
@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"net"
 	"strings"
 
 	"github.com/Unbewohnte/ftu/encryption"
@@ -20,6 +19,8 @@ type Packet struct {
 	Header Header
 	Body   []byte
 }
+
+var ErrorInvalidPacket error = fmt.Errorf("invalid packet header or body")
 
 // Returns a size of the given packet as if it would be sent and presented in bytes.
 // ie: FILE~bytes_here
@@ -32,14 +33,12 @@ func (packet *Packet) Size() uint64 {
 	return uint64(packetBytes.Len())
 }
 
-var ErrorNotPacketBytes error = fmt.Errorf("not packet bytes")
-
 // Converts packet bytes into Packet struct
 func BytesToPacket(packetbytes []byte) (*Packet, error) {
 	// check if there`s a header delimiter present
 	pString := string(packetbytes)
 	if !strings.Contains(pString, HEADERDELIMETER) {
-		return nil, ErrorNotPacketBytes
+		return nil, ErrorInvalidPacket
 	}
 
 	var header Header
@@ -59,7 +58,7 @@ func BytesToPacket(packetbytes []byte) (*Packet, error) {
 	}, nil
 }
 
-var ErrorExceededMaxPacketsize error = fmt.Errorf("the packet is too big")
+var ErrorExceededMaxPacketsize error = fmt.Errorf("packet is too big")
 
 // Converts given packet struct into ready-to-transfer bytes, constructed by following the protocol
 func (packet *Packet) ToBytes() ([]byte, error) {
@@ -84,22 +83,6 @@ func (packet *Packet) ToBytes() ([]byte, error) {
 	packetBuffer.Write(packet.Body)
 
 	return packetBuffer.Bytes(), nil
-}
-
-// Sends given packet to connection.
-// ALL packets MUST be sent by this method
-func SendPacket(connection net.Conn, packet Packet) error {
-	packetBytes, err := packet.ToBytes()
-	if err != nil {
-		return err
-	}
-
-	// fmt.Printf("[SEND] packet %+s; len: %d\n", packetBytes[:30], len(packetBytes))
-
-	// write the result (ie: (packetsize)(header)~(bodybytes))
-	connection.Write(packetBytes)
-
-	return nil
 }
 
 // Encrypts packet`s BODY with AES encryption
@@ -128,39 +111,4 @@ func (packet *Packet) DecryptBody(key []byte) error {
 	packet.Body = decryptedBody
 
 	return nil
-}
-
-// Reads a packet from given connection, returns its bytes.
-// ASSUMING THAT THE PACKETS ARE SENT BY `SendPacket` function !!!!
-func ReadFromConn(connection net.Conn) ([]byte, error) {
-	var packetSize uint64
-	err := binary.Read(connection, binary.BigEndian, &packetSize)
-	if err != nil {
-		return nil, err
-	}
-
-	// have a packetsize, now reading the whole packet
-	packetBuffer := new(bytes.Buffer)
-
-	// splitting a big-sized packet into chunks and constructing it from pieces
-	left := packetSize
-	for {
-		if left == 0 {
-			break
-		}
-
-		buff := make([]byte, 8192)
-		if left < uint64(len(buff)) {
-			buff = make([]byte, left)
-		}
-
-		read, _ := connection.Read(buff)
-		left -= uint64(read)
-
-		packetBuffer.Write(buff[:read])
-	}
-
-	// fmt.Printf("[RECV] read from connection: %s; length: %d\n", packetBuffer.Bytes()[:30], packetBuffer.Len())
-
-	return packetBuffer.Bytes(), nil
 }

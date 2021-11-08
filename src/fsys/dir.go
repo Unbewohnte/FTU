@@ -14,7 +14,6 @@ type Directory struct {
 	Size        uint64
 	Files       []*File
 	Directories []*Directory
-	Checksum    string // Set manually
 }
 
 var ErrorNotDirectory error = fmt.Errorf("not a directory")
