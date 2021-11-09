@@ -16,15 +16,13 @@ const HeaderEncryptionKey Header = "ENCRKEY"
 
 // REJECT.
 // Sent only by receiver if the receiver has decided to not download the contents.
-// The body must contain a file ID in binary.
-// ie: REJECT~(file id in binary)
+// ie: REJECT~
 const HeaderReject Header = "REJECT"
 
 // ACCEPT.
 // The opposite of the previous REJECT. Sent by receiver when
-// he has agreed to download the file|directory. The body must contain
-// the ID of a file in binary that is allowed to upload
-// ie: ACCEPT~(file id in binary)
+// he has agreed to download the file|directory.
+// ie: ACCEPT~
 const HeaderAccept Header = "ACCEPT"
 
 // DONE.

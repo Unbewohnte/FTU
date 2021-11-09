@@ -4,18 +4,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-)
 
-var FileIDsCounter uint64 = 1
+	"github.com/Unbewohnte/ftu/checksum"
+)
 
 // A struct that represents the necessary file information for transportation through node
 type File struct {
-	ID         uint64
+	ID         uint64 // Set manually
 	Name       string
 	Path       string
 	ParentPath string
 	Size       uint64
-	Checksum   string   // Set manually
+	Checksum   string
 	Handler    *os.File // Set when .Open() is called
 	SentBytes  uint64   // Set manually during transportation
 }
@@ -43,7 +43,6 @@ func GetFile(path string) (*File, error) {
 	}
 
 	file := File{
-		ID:         FileIDsCounter,
 		Name:       stats.Name(),
 		Path:       absPath,
 		ParentPath: filepath.Dir(absPath),
@@ -51,8 +50,19 @@ func GetFile(path string) (*File, error) {
 		Handler:    nil,
 	}
 
-	// increment ids counter so the next file will have a different ID
-	FileIDsCounter++
+	// get checksum
+	err = file.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer file.Handler.Close()
+
+	checksum, err := checksum.GetPartialCheckSum(file.Handler)
+	if err != nil {
+		return nil, err
+	}
+
+	file.Checksum = checksum
 
 	return &file, nil
 }

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/Unbewohnte/ftu/checksum"
 	"github.com/Unbewohnte/ftu/fsys"
 )
 
@@ -36,14 +35,9 @@ func CreateFilePacket(file *fsys.File) (*Packet, error) {
 	binary.Write(fPacketBodyBuff, binary.BigEndian, &file.Size)
 
 	// checksum
-	fileChecksum, err := checksum.GetPartialCheckSum(file.Handler)
-	if err != nil {
-		return nil, err
-	}
-
-	checksumLen := uint64(len([]byte(fileChecksum)))
+	checksumLen := uint64(len([]byte(file.Checksum)))
 	binary.Write(fPacketBodyBuff, binary.BigEndian, &checksumLen)
-	fPacketBodyBuff.Write([]byte(fileChecksum))
+	fPacketBodyBuff.Write([]byte(file.Checksum))
 
 	filePacket.Body = fPacketBodyBuff.Bytes()
 
