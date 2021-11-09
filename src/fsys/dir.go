@@ -91,3 +91,26 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 
 	return &directory, nil
 }
+
+var FILES []*File
+
+// Returns every file in that directory
+func (dir *Directory) GetAllFiles(recursively bool) []*File {
+	var files []*File = dir.Files
+
+	if recursively {
+		if len(dir.Directories) == 0 {
+			return files
+		}
+
+		for _, innerDir := range dir.Directories {
+			innerFiles := innerDir.GetAllFiles(recursively)
+			files = append(files, innerFiles...)
+		}
+
+	} else {
+		files = dir.Files
+	}
+
+	return files
+}

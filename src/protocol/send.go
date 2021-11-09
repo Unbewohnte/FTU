@@ -20,7 +20,7 @@ func SendPacket(connection net.Conn, packet Packet) error {
 		return err
 	}
 
-	// fmt.Printf("[SEND] packet %+s; len: %d\n", packetBytes[:30], len(packetBytes))
+	fmt.Printf("[SEND] packet %+s; len: %d\n", packetBytes[:30], len(packetBytes))
 
 	// write the result (ie: (packetsize)(header)~(bodybytes))
 	connection.Write(packetBytes)

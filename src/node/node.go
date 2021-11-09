@@ -65,9 +65,9 @@ type Node struct {
 
 // Creates a new either a sending or receiving node with specified options
 func NewNode(options *NodeOptions) (*Node, error) {
-
 	var isDir bool
 	if options.IsSending {
+		// sending node preparation
 		sendingPathStats, err := os.Stat(options.ServerSide.ServingPath)
 		if err != nil {
 			return nil, err
@@ -79,6 +79,12 @@ func NewNode(options *NodeOptions) (*Node, error) {
 
 		case false:
 			isDir = false
+		}
+	} else {
+		// receiving node preparation
+		err := os.MkdirAll(options.ClientSide.DownloadsFolderPath, os.ModePerm)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -252,14 +258,72 @@ func (node *Node) Start() {
 
 			// react based on a header of a received packet
 			switch incomingPacket.Header {
+
 			case protocol.HeaderReady:
 				// the other node is ready to receive file data
 				node.transferInfo.Sending.CanSendBytes = true
 
 			case protocol.HeaderAccept:
+				// the receiving node has accepted the transfer
 				node.state.AllowedToTransfer = true
 
 				fmt.Printf("Transfer allowed. Sending...\n")
+
+				// notify it about all the files that are going to be sent
+				switch node.transferInfo.Sending.IsDirectory {
+				case true:
+					// send file packets for the files in the directory
+
+					var filesToSend []*fsys.File
+					if node.transferInfo.Sending.Recursive {
+						filesToSend = dir.GetAllFiles(true)
+					} else {
+						filesToSend = dir.GetAllFiles(false)
+					}
+
+					for _, file := range filesToSend {
+						filePacket, err := protocol.CreateFilePacket(file)
+						if err != nil {
+							panic(err)
+						}
+
+						// encrypt if necessary
+						if node.netInfo.EncryptionKey != nil {
+							encryptedBody, err := encryption.Encrypt(node.netInfo.EncryptionKey, filePacket.Body)
+							if err != nil {
+								panic(err)
+							}
+							filePacket.Body = encryptedBody
+						}
+
+						err = protocol.SendPacket(node.netInfo.Conn, *filePacket)
+						if err != nil {
+							panic(err)
+						}
+					}
+
+				case false:
+					// send a filepacket of a single file
+
+					filePacket, err := protocol.CreateFilePacket(file)
+					if err != nil {
+						panic(err)
+					}
+
+					// encrypt if necessary
+					if node.netInfo.EncryptionKey != nil {
+						encryptedBody, err := encryption.Encrypt(node.netInfo.EncryptionKey, filePacket.Body)
+						if err != nil {
+							panic(err)
+						}
+						filePacket.Body = encryptedBody
+					}
+
+					err = protocol.SendPacket(node.netInfo.Conn, *filePacket)
+					if err != nil {
+						panic(err)
+					}
+				}
 
 			case protocol.HeaderReject:
 				node.state.Stopped = true
@@ -400,40 +464,6 @@ func (node *Node) Start() {
 					if strings.EqualFold(answer, "y") || answer == "" {
 						// yes
 
-						if file != nil {
-							// file
-							err = os.MkdirAll(filepath.Join(node.transferInfo.Receiving.DownloadsPath), os.ModePerm)
-							if err != nil {
-								panic(err)
-							}
-							fullFilePath := filepath.Join(node.transferInfo.Receiving.DownloadsPath, file.Name)
-
-							// check if the file already exists; if yes - remove it and replace with a new one
-							_, err := os.Stat(fullFilePath)
-							if err == nil {
-								// exists
-								// remove it
-								os.Remove(fullFilePath)
-							}
-
-							file.Path = fullFilePath
-							file.Open()
-
-							node.mutex.Lock()
-							node.transferInfo.Receiving.AcceptedFiles = append(node.transferInfo.Receiving.AcceptedFiles, file)
-							node.mutex.Unlock()
-
-						} else if dir != nil {
-							// directory
-
-							// add a new directory to downloads path
-							node.transferInfo.Receiving.DownloadsPath = filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name)
-							err = os.MkdirAll(node.transferInfo.Receiving.DownloadsPath, os.ModePerm)
-							if err != nil {
-								panic(err)
-							}
-						}
-
 						// send aceptance packet
 						responsePacketFileIDBuffer := new(bytes.Buffer)
 						binary.Write(responsePacketFileIDBuffer, binary.BigEndian, file.ID)
@@ -493,8 +523,42 @@ func (node *Node) Start() {
 				}()
 
 			case protocol.HeaderFile:
-				// process an information about a singe file
-				// (TODO)
+				// add file to the accepted files;
+
+				file, err := protocol.DecodeFilePacket(incomingPacket)
+				if err != nil {
+					panic(err)
+				}
+				fullFilePath := filepath.Join(node.transferInfo.Receiving.DownloadsPath, file.Name)
+
+				// check if the file already exists; if yes - remove it and replace with a new one
+				_, err = os.Stat(fullFilePath)
+				if err == nil {
+					// exists
+					// remove it
+					os.Remove(fullFilePath)
+				}
+
+				file.Path = fullFilePath
+				file.Open()
+
+				node.mutex.Lock()
+				node.transferInfo.Receiving.AcceptedFiles = append(node.transferInfo.Receiving.AcceptedFiles, file)
+				node.mutex.Unlock()
+
+			case protocol.HeaderDirectory:
+				// directory
+				dir, err := protocol.DecodeDirectoryPacket(incomingPacket)
+				if err != nil {
+					panic(err)
+				}
+
+				// add a new directory to downloads path
+				node.transferInfo.Receiving.DownloadsPath = filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name)
+				err = os.MkdirAll(node.transferInfo.Receiving.DownloadsPath, os.ModePerm)
+				if err != nil {
+					panic(err)
+				}
 
 			case protocol.HeaderFileBytes:
 				// check if this file has been accepted to receive
@@ -531,7 +595,7 @@ func (node *Node) Start() {
 				// one of the files has been received completely,
 				// compare checksums and check if it is the last
 				// file in the transfer
-				// (TODO)
+
 				fileIDReader := bytes.NewReader(incomingPacket.Body)
 				var fileID uint64
 				err := binary.Read(fileIDReader, binary.BigEndian, &fileID)
