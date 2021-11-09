@@ -38,7 +38,7 @@ func ReadFromConn(connection net.Conn) ([]byte, error) {
 		packetBuffer.Write(buff[:read])
 	}
 
-	fmt.Printf("[RECV] read from connection: %s; length: %d\n", packetBuffer.Bytes()[:30], packetBuffer.Len())
+	// fmt.Printf("[RECV] read from connection: %s; length: %d\n", packetBuffer.Bytes()[:30], packetBuffer.Len())
 
 	return packetBuffer.Bytes(), nil
 }

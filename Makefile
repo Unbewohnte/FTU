@@ -13,5 +13,8 @@ race:
 install: all
 	cp $(EXE_NAME) $(INSTALLATION_DIR)
 
+test:
+	cd $(SRC_DIR) && go test ./... ; cd ..
+
 clean:
 	rm $(EXE_NAME)
