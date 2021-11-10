@@ -49,7 +49,7 @@ Now you have ftu installed !
 `ftu [FLAGS]`
 
 ### ● FLAGs
-- -p [Uinteger_here] for port
+- -p [uint] for port
 - -r [true|false] for recursive sending of a directory
 - -a [ip_address|domain_name] address to connect to (cannot be used with -s)
 - -d [path_to_directory] where the files will be downloaded to (cannot be used with -s)
@@ -67,21 +67,17 @@ creates a node that will connect to 192.168.1.104:7277 and download served file|
 `ftu -p 7277 -a 192.168.1.104 -d /home/user/Downloads/`
 creates a node that will connect to 192.168.1.104:7277 and download served file|directory to "/home/user/Downloads/"
 
-`ftu -s /home/user/homework` (TODO)
+`ftu -s /home/user/homework`
 creates a node that will send every file in the directory
 
-`ftu -r -s /home/user/homework/` (TODO)
+`ftu -r -s /home/user/homework/`
 creates a node that will send every file in the directory !RECUSRIVELY!
 
 ---
 
 ## ● Testing
 
-In 'src' directory:
-
-- `go test ./...` - to test everything
-- `go test -v ./...` - to test everything, with additional information
-- `go test ./NAME_OF_THE_PACKAGE` - to test a certain package
+`make test` or in "src" directory `go test ./...`
 
 ---
 
@@ -103,7 +99,3 @@ learn so much and get practical experience by simply using http, ftp or whatever
 
 ## ● License
 MIT
-
-## ● TODO
-- Send directory
-- ~~Wire back encryption~~

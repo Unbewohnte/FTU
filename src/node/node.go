@@ -315,8 +315,6 @@ func (node *Node) Start() {
 						// set current file id to the first file
 						node.transferInfo.Sending.CurrentFileIndex = 0
 
-						// fmt.Printf("[%d] rel path: %s\n", file.ID, file.RelativeParentPath)
-
 						filePacket, err := protocol.CreateFilePacket(file)
 						if err != nil {
 							panic(err)
