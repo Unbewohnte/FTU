@@ -65,10 +65,6 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 					return nil, err
 				}
 
-				for _, file := range innerDir.Files {
-					file.RelativeParentPath = filepath.Join(directory.Name, innerDir.Name, file.Name)
-				}
-
 				directory.Size += innerDir.Size
 
 				innerDirs = append(innerDirs, innerDir)
@@ -83,8 +79,6 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 				return nil, err
 			}
 
-			innerFile.RelativeParentPath = filepath.Join(directory.Name, innerFile.Name)
-
 			directory.Size += innerFile.Size
 
 			innerFiles = append(innerFiles, innerFile)
@@ -98,16 +92,16 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 }
 
 // Returns every file in that directory
-func (dir *Directory) GetAllFiles(recursively bool) []*File {
+func (dir *Directory) GetAllFiles(recursive bool) []*File {
 	var files []*File = dir.Files
 
-	if recursively {
+	if recursive {
 		if len(dir.Directories) == 0 {
 			return files
 		}
 
 		for _, innerDir := range dir.Directories {
-			innerFiles := innerDir.GetAllFiles(recursively)
+			innerFiles := innerDir.GetAllFiles(recursive)
 			files = append(files, innerFiles...)
 		}
 
@@ -116,4 +110,23 @@ func (dir *Directory) GetAllFiles(recursively bool) []*File {
 	}
 
 	return files
+}
+
+// Sets `RelativeParentPath` relative to the given base path.
+// file with such path:
+// /home/user/directory/somefile.txt
+// had a relative path like that:
+// /directory/somefile.txt
+// (where base path is /home/user/directory)
+func (dir *Directory) SetRelativePaths(base string, recursive bool) error {
+	for _, file := range dir.GetAllFiles(recursive) {
+		relPath, err := filepath.Rel(base, file.Path)
+		if err != nil {
+			return err
+		}
+
+		file.RelativeParentPath = relPath
+
+	}
+	return nil
 }

@@ -14,7 +14,7 @@ func CreateFilePacket(file *fsys.File) (*Packet, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Handler.Close()
+	defer file.Close()
 
 	//(id in binary)(filename length in binary)(filename)(filesize)(checksum length in binary)(checksum)(relative path to the upper directory size in binary if present)(relative path)
 

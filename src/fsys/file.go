@@ -54,7 +54,7 @@ func GetFile(path string) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Handler.Close()
+	defer file.Close()
 
 	checksum, err := checksum.GetPartialCheckSum(file.Handler)
 	if err != nil {
@@ -68,11 +68,28 @@ func GetFile(path string) (*File, error) {
 
 // Opens file for read/write operations
 func (file *File) Open() error {
+	if file.Handler != nil {
+		file.Close()
+	}
+
 	handler, err := os.OpenFile(file.Path, os.O_CREATE|os.O_RDWR, os.ModePerm)
 	if err != nil {
 		return err
 	}
 	file.Handler = handler
 
+	return nil
+}
+
+// file.Handler.Close wrapper
+func (file *File) Close() error {
+	if file.Handler != nil {
+		err := file.Handler.Close()
+		if err != nil {
+			return err
+		}
+
+		file.Handler = nil
+	}
 	return nil
 }

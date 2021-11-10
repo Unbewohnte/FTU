@@ -1,6 +1,8 @@
 package fsys
 
-import "testing"
+import (
+	"testing"
+)
 
 func Test_GetDir(t *testing.T) {
 	dirpath := "../testfiles/"
@@ -30,13 +32,6 @@ func Test_GetDirRecursive(t *testing.T) {
 		}
 	}
 
-	// t.Errorf("[initialdir] %+v", dir.Files[0])
-	// for _, dir := range dir.Directories {
-	// 	for countf, file := range dir.Files {
-	// 		t.Errorf("[%d]  %+v\n", countf, file)
-	// 	}
-	// }
-
 }
 
 func Test_GetFiles(t *testing.T) {
@@ -50,7 +45,7 @@ func Test_GetFiles(t *testing.T) {
 	// recursive
 	files := dir.GetAllFiles(true)
 
-	fileCount := 5
+	fileCount := 6
 	if len(files) != fileCount {
 		t.Fatalf("expected to get %d files; got %d\n", fileCount, len(files))
 	}
@@ -63,3 +58,26 @@ func Test_GetFiles(t *testing.T) {
 	}
 
 }
+
+// func Test_SetRelativePaths(t *testing.T) {
+// 	dirpath := "../testfiles/"
+
+// 	dir, err := GetDir(dirpath, true)
+// 	if err != nil {
+// 		t.Fatalf("%s", err)
+// 	}
+
+// 	absDirPath, err := filepath.Abs(dirpath)
+// 	if err != nil {
+// 		t.Fatalf("%s", err)
+// 	}
+
+// 	err = dir.SetRelativePaths(absDirPath, true)
+// 	if err != nil {
+// 		t.Fatalf("%s", err)
+// 	}
+
+// 	for count, file := range dir.GetAllFiles(true) {
+// 		t.Errorf("[%d] %v\n", count, file.RelativeParentPath)
+// 	}
+// }

@@ -125,7 +125,7 @@ func SendPiece(file *fsys.File, connection net.Conn, encrKey []byte) error {
 	if err != nil {
 		return err
 	}
-	defer file.Handler.Close()
+	defer file.Close()
 
 	if file.SentBytes == 0 {
 		file.Handler.Seek(0, io.SeekStart)
@@ -142,7 +142,7 @@ func SendPiece(file *fsys.File, connection net.Conn, encrKey []byte) error {
 	packetBodyBuff := new(bytes.Buffer)
 
 	// write file ID first
-	err = binary.Write(packetBodyBuff, binary.BigEndian, &file.ID)
+	err = binary.Write(packetBodyBuff, binary.BigEndian, file.ID)
 	if err != nil {
 		return err
 	}
@@ -165,6 +165,7 @@ func SendPiece(file *fsys.File, connection net.Conn, encrKey []byte) error {
 	if err != nil {
 		return err
 	}
+	file.SentBytes += uint64(read)
 
 	packetBodyBuff.Write(fileBytes)
 
@@ -182,8 +183,6 @@ func SendPiece(file *fsys.File, connection net.Conn, encrKey []byte) error {
 	if err != nil {
 		return err
 	}
-
-	file.SentBytes += uint64(read)
 
 	return nil
 }

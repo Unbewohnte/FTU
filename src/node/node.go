@@ -84,10 +84,17 @@ func NewNode(options *NodeOptions) (*Node, error) {
 		}
 	} else {
 		// receiving node preparation
-		err := os.MkdirAll(options.ClientSide.DownloadsFolderPath, os.ModePerm)
+		var err error
+		options.ClientSide.DownloadsFolderPath, err = filepath.Abs(options.ClientSide.DownloadsFolderPath)
 		if err != nil {
 			return nil, err
 		}
+
+		err = os.MkdirAll(options.ClientSide.DownloadsFolderPath, os.ModePerm)
+		if err != nil {
+			return nil, err
+		}
+
 	}
 
 	node := Node{
@@ -219,7 +226,7 @@ func (node *Node) Start() {
 
 			fmt.Printf("Sending \"%s\" (%.3f %s) locally on %s:%d\n", dirToSend.Name, size, sizeLevel, localIP, node.netInfo.Port)
 		} else {
-			size := float32(dirToSend.Size) / 1024 / 1024
+			size := float32(fileToSend.Size) / 1024 / 1024
 			sizeLevel := "MiB"
 			if size >= 1024 {
 				// GiB
@@ -292,12 +299,11 @@ func (node *Node) Start() {
 				case true:
 					// send file packets for the files in the directory
 
-					var filesToSend []*fsys.File
-					if node.transferInfo.Sending.Recursive {
-						filesToSend = dirToSend.GetAllFiles(true)
-					} else {
-						filesToSend = dirToSend.GetAllFiles(false)
+					err = dirToSend.SetRelativePaths(dirToSend.Path, node.transferInfo.Sending.Recursive)
+					if err != nil {
+						panic(err)
 					}
+					filesToSend := dirToSend.GetAllFiles(node.transferInfo.Sending.Recursive)
 
 					// notify the other node about all the files that are going to be sent
 					for counter, file := range filesToSend {
@@ -308,6 +314,8 @@ func (node *Node) Start() {
 
 						// set current file id to the first file
 						node.transferInfo.Sending.CurrentFileIndex = 0
+
+						// fmt.Printf("[%d] rel path: %s\n", file.ID, file.RelativeParentPath)
 
 						filePacket, err := protocol.CreateFilePacket(file)
 						if err != nil {
@@ -327,6 +335,7 @@ func (node *Node) Start() {
 						if err != nil {
 							panic(err)
 						}
+
 					}
 
 				case false:
@@ -370,24 +379,24 @@ func (node *Node) Start() {
 
 			// Transfer section
 
+			if len(node.transferInfo.Sending.FilesToSend) == 0 {
+				// if there`s nothing else to send - create and send DONE packet
+				protocol.SendPacket(node.netInfo.Conn, protocol.Packet{
+					Header: protocol.HeaderDone,
+				})
+
+				fmt.Printf("Transfer ended successfully\n")
+
+				node.state.Stopped = true
+			}
+
 			// if allowed to transfer and the other node is ready to receive packets - send one piece
 			// and wait for it to be ready again
 			if node.state.AllowedToTransfer && node.transferInfo.Sending.CanSendBytes {
-				if len(node.transferInfo.Sending.FilesToSend) == 0 {
-					// if there`s nothing else to send - create and send DONE packet
-					protocol.SendPacket(node.netInfo.Conn, protocol.Packet{
-						Header: protocol.HeaderDone,
-					})
-
-					fmt.Printf("Transfer ended successfully\n")
-
-					node.state.Stopped = true
-				}
 
 				// sending a piece of a single file
 
 				currentFileIndex := node.transferInfo.Sending.CurrentFileIndex
-
 				err = protocol.SendPiece(node.transferInfo.Sending.FilesToSend[currentFileIndex], node.netInfo.Conn, node.netInfo.EncryptionKey)
 				switch err {
 				case protocol.ErrorSentAll:
@@ -520,18 +529,18 @@ func (node *Node) Start() {
 					if strings.EqualFold(answer, "y") || answer == "" {
 						// yes
 
-						// // in case it`s a directory - create it now
-						// if dir != nil {
-						// 	err = os.MkdirAll(filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name), os.ModePerm)
-						// 	if err != nil {
-						// 		// well, just download all files in the default downloads folder then
-						// 		fmt.Printf("[ERROR] could not create a directory\n")
-						// 	} else {
-						// 		// also download everything in a newly created directory
-						// 		node.transferInfo.Receiving.DownloadsPath = filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name)
-						// 	}
+						// in case it`s a directory - create it now
+						if dir != nil {
+							err = os.MkdirAll(filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name), os.ModePerm)
+							if err != nil {
+								// well, just download all files in the default downloads folder then
+								fmt.Printf("[ERROR] could not create a directory\n")
+							} else {
+								// also download everything in a newly created directory
+								node.transferInfo.Receiving.DownloadsPath = filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name)
+							}
 
-						// }
+						}
 
 						// send aceptance packet
 						acceptancePacket := protocol.Packet{
@@ -578,10 +587,7 @@ func (node *Node) Start() {
 					panic(err)
 				}
 
-				file.Path, err = filepath.Abs(filepath.Join(node.transferInfo.Receiving.DownloadsPath, file.RelativeParentPath))
-				if err != nil {
-					panic(err)
-				}
+				file.Path = filepath.Join(node.transferInfo.Receiving.DownloadsPath, file.RelativeParentPath)
 
 				// create all underlying directories right ahead
 				err = os.MkdirAll(filepath.Dir(file.Path), os.ModePerm)
@@ -596,8 +602,6 @@ func (node *Node) Start() {
 					// remove it
 					os.Remove(file.Path)
 				}
-
-				file.Open()
 
 				node.mutex.Lock()
 				node.transferInfo.Receiving.AcceptedFiles = append(node.transferInfo.Receiving.AcceptedFiles, file)
@@ -620,8 +624,31 @@ func (node *Node) Start() {
 
 						// append provided bytes to the file
 
+						err = acceptedFile.Open()
+						if err != nil {
+							panic(err)
+						}
+
 						fileBytes := fileBytesBuffer.Bytes()
-						_, err = acceptedFile.Handler.Write(fileBytes)
+
+						wrote, err := acceptedFile.Handler.WriteAt(fileBytes, int64(acceptedFile.SentBytes))
+						if err != nil {
+							panic(err)
+							// // fmt.Printf("[Debug] %+v\n", acceptedFile)
+
+							// // this file won`t be completed, so it`ll be ignored
+
+							// // remove this file from the pool
+							// node.transferInfo.Receiving.AcceptedFiles = append(node.transferInfo.Receiving.AcceptedFiles[:index], node.transferInfo.Receiving.AcceptedFiles[index+1:]...)
+
+							// fmt.Printf("[ERROR] an error occured when receiving a file \"%s\": %s. This file will not be completed", acceptedFile.Name, err)
+
+							// // remove it from the filesystem
+							// os.Remove(acceptedFile.Path)
+						}
+						acceptedFile.SentBytes += uint64(wrote)
+
+						err = acceptedFile.Close()
 						if err != nil {
 							panic(err)
 						}
@@ -652,8 +679,10 @@ func (node *Node) Start() {
 					if acceptedFile.ID == fileID {
 						// accepted
 
-						// close the handler afterwards
-						defer acceptedFile.Handler.Close()
+						err = acceptedFile.Open()
+						if err != nil {
+							panic(err)
+						}
 
 						// remove this file from the pool
 						node.transferInfo.Receiving.AcceptedFiles = append(node.transferInfo.Receiving.AcceptedFiles[:index], node.transferInfo.Receiving.AcceptedFiles[index+1:]...)
@@ -667,9 +696,11 @@ func (node *Node) Start() {
 						fmt.Printf("\n| Checking hashes for file \"%s\"\n", acceptedFile.Name)
 						if realChecksum != acceptedFile.Checksum {
 							fmt.Printf("| %s --- %s file is corrupted\n", realChecksum, acceptedFile.Checksum)
+							acceptedFile.Close()
 							break
 						} else {
 							fmt.Printf("| %s --- %s\n", realChecksum, acceptedFile.Checksum)
+							acceptedFile.Close()
 							break
 						}
 					}
