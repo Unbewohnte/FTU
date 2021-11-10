@@ -65,7 +65,9 @@ const HeaderTransferOffer Header = "TRANSFEROFFER"
 // FILE.
 // Sent by sender, indicating that the file is going to be sent.
 // The body structure must follow such structure:
-// FILE~(id in binary)(filename length in binary)(filename)(filesize)(checksum length in binary)(checksum)
+// FILE~(id in binary)(filename length in binary)(filename)(filesize)(checksum length in binary)(checksum)(relative path to the upper directory size in binary if present)(relative path)
+// relative path is not needed when the file is already in the root of the initial directory, but must be included when
+// the whole directory is being sent recursively
 const HeaderFile Header = "FILE"
 
 // FILEBYTES.
@@ -81,7 +83,7 @@ const HeaderFileBytes Header = "FILEBYTES"
 const HeaderEndfile Header = "ENDFILE"
 
 // DIRECTORY
-// Sent by sender, indicates that a directory with current information
-// is going to be sent. The structure of the body must follow the example:
+// Sent by sender. Used in TRANSFEROFFER packet to tell the difference
+// between a file and a directory.
 // ie: DIRECTORY~(dirname size in binary)(dirname)(dirsize)
 const HeaderDirectory Header = "DIRECTORY"

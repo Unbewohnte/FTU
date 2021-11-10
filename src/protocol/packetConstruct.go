@@ -16,7 +16,7 @@ func CreateFilePacket(file *fsys.File) (*Packet, error) {
 	}
 	defer file.Handler.Close()
 
-	// FILE~(idInBinary)(filenameLengthInBinary)(filename)(filesize)(checksumLengthInBinary)(checksum)
+	//(id in binary)(filename length in binary)(filename)(filesize)(checksum length in binary)(checksum)(relative path to the upper directory size in binary if present)(relative path)
 
 	filePacket := Packet{
 		Header: HeaderFile,
@@ -38,6 +38,11 @@ func CreateFilePacket(file *fsys.File) (*Packet, error) {
 	checksumLen := uint64(len([]byte(file.Checksum)))
 	binary.Write(fPacketBodyBuff, binary.BigEndian, &checksumLen)
 	fPacketBodyBuff.Write([]byte(file.Checksum))
+
+	// relative path
+	relPathLen := uint64(len([]byte(file.RelativeParentPath)))
+	binary.Write(fPacketBodyBuff, binary.BigEndian, &relPathLen)
+	fPacketBodyBuff.Write([]byte(file.RelativeParentPath))
 
 	filePacket.Body = fPacketBodyBuff.Bytes()
 

@@ -29,6 +29,14 @@ func Test_GetDirRecursive(t *testing.T) {
 			t.Fatalf("inner dir cannot have a bigger size (%d B) than its parent`s total size (%d B)", innerDir.Size, dir.Size)
 		}
 	}
+
+	// t.Errorf("[initialdir] %+v", dir.Files[0])
+	// for _, dir := range dir.Directories {
+	// 	for countf, file := range dir.Files {
+	// 		t.Errorf("[%d]  %+v\n", countf, file)
+	// 	}
+	// }
+
 }
 
 func Test_GetFiles(t *testing.T) {

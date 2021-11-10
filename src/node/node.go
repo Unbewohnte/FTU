@@ -35,12 +35,12 @@ type netInfoInfo struct {
 
 // Sending-side node information
 type sending struct {
-	ServingPath   string // path to the thing that will be sent
-	IsDirectory   bool   // is ServingPath a directory
-	Recursive     bool   // recursively send directory
-	CanSendBytes  bool   // is the other node ready to receive another piece
-	FilesToSend   []*fsys.File
-	CurrentFileID uint64 // an id of a file that is currently being transported
+	ServingPath      string // path to the thing that will be sent
+	IsDirectory      bool   // is ServingPath a directory
+	Recursive        bool   // recursively send directory
+	CanSendBytes     bool   // is the other node ready to receive another piece
+	FilesToSend      []*fsys.File
+	CurrentFileIndex uint64 // an id of a file that is currently being transported
 }
 
 // Receiving-side node information
@@ -209,9 +209,24 @@ func (node *Node) Start() {
 		}
 
 		if dirToSend != nil {
-			fmt.Printf("Sending \"%s\" (%.2f MB) locally on %s:%d\n", dirToSend.Name, float32(dirToSend.Size)/1024/1024, localIP, node.netInfo.Port)
+			size := float32(dirToSend.Size) / 1024 / 1024
+			sizeLevel := "MiB"
+			if size >= 1024 {
+				// GiB
+				size = size / 1024
+				sizeLevel = "GiB"
+			}
+
+			fmt.Printf("Sending \"%s\" (%.3f %s) locally on %s:%d\n", dirToSend.Name, size, sizeLevel, localIP, node.netInfo.Port)
 		} else {
-			fmt.Printf("Sending \"%s\" (%.2f MB) locally on %s:%d\n", fileToSend.Name, float32(fileToSend.Size)/1024/1024, localIP, node.netInfo.Port)
+			size := float32(dirToSend.Size) / 1024 / 1024
+			sizeLevel := "MiB"
+			if size >= 1024 {
+				// GiB
+				size = size / 1024
+				sizeLevel = "GiB"
+			}
+			fmt.Printf("Sending \"%s\" (%.3f %s) locally on %s:%d\n", fileToSend.Name, size, sizeLevel, localIP, node.netInfo.Port)
 
 		}
 
@@ -248,7 +263,7 @@ func (node *Node) Start() {
 			incomingPacket, ok := <-node.packetPipe
 			if !ok {
 				fmt.Printf("The connection has been closed unexpectedly\n")
-				break
+				os.Exit(-1.)
 			}
 
 			// if encryption key is set - decrypt packet on the spot
@@ -291,6 +306,9 @@ func (node *Node) Start() {
 						file.ID = uint64(counter)
 						node.transferInfo.Sending.FilesToSend = append(node.transferInfo.Sending.FilesToSend, file)
 
+						// set current file id to the first file
+						node.transferInfo.Sending.CurrentFileIndex = 0
+
 						filePacket, err := protocol.CreateFilePacket(file)
 						if err != nil {
 							panic(err)
@@ -311,13 +329,13 @@ func (node *Node) Start() {
 						}
 					}
 
-					// set current file id to the first file
-					node.transferInfo.Sending.CurrentFileID = 0
-
 				case false:
 					// send a filepacket of a single file
 					fileToSend.ID = 0
 					node.transferInfo.Sending.FilesToSend = append(node.transferInfo.Sending.FilesToSend, fileToSend)
+
+					// set current file index to the first and only file
+					node.transferInfo.Sending.CurrentFileIndex = 0
 
 					filePacket, err := protocol.CreateFilePacket(node.transferInfo.Sending.FilesToSend[0])
 					if err != nil {
@@ -338,14 +356,12 @@ func (node *Node) Start() {
 						panic(err)
 					}
 
-					// set current file id to the first and only file
-					node.transferInfo.Sending.CurrentFileID = 0
 				}
 
 			case protocol.HeaderReject:
 				node.state.Stopped = true
 
-				fmt.Printf("Transfer rejected. Disconnecting...")
+				fmt.Printf("Transfer rejected. Disconnecting...\n")
 
 			case protocol.HeaderDisconnecting:
 				node.state.Stopped = true
@@ -354,30 +370,30 @@ func (node *Node) Start() {
 
 			// Transfer section
 
-			if len(node.transferInfo.Sending.FilesToSend) == 0 {
-				// if there`s nothing else to send - create and send DONE packet
-				protocol.SendPacket(node.netInfo.Conn, protocol.Packet{
-					Header: protocol.HeaderDone,
-				})
-
-				fmt.Printf("Transfer ended successfully\n")
-
-				node.state.Stopped = true
-			}
-
 			// if allowed to transfer and the other node is ready to receive packets - send one piece
 			// and wait for it to be ready again
 			if node.state.AllowedToTransfer && node.transferInfo.Sending.CanSendBytes {
+				if len(node.transferInfo.Sending.FilesToSend) == 0 {
+					// if there`s nothing else to send - create and send DONE packet
+					protocol.SendPacket(node.netInfo.Conn, protocol.Packet{
+						Header: protocol.HeaderDone,
+					})
+
+					fmt.Printf("Transfer ended successfully\n")
+
+					node.state.Stopped = true
+				}
+
 				// sending a piece of a single file
 
-				currentFileID := node.transferInfo.Sending.CurrentFileID
+				currentFileIndex := node.transferInfo.Sending.CurrentFileIndex
 
-				err = protocol.SendPiece(node.transferInfo.Sending.FilesToSend[currentFileID], node.netInfo.Conn, node.netInfo.EncryptionKey)
+				err = protocol.SendPiece(node.transferInfo.Sending.FilesToSend[currentFileIndex], node.netInfo.Conn, node.netInfo.EncryptionKey)
 				switch err {
 				case protocol.ErrorSentAll:
 					// the file has been sent fully
 					fileIDBuff := new(bytes.Buffer)
-					err = binary.Write(fileIDBuff, binary.BigEndian, node.transferInfo.Sending.FilesToSend[currentFileID].ID)
+					err = binary.Write(fileIDBuff, binary.BigEndian, node.transferInfo.Sending.FilesToSend[currentFileIndex].ID)
 					if err != nil {
 						panic(err)
 					}
@@ -397,7 +413,7 @@ func (node *Node) Start() {
 					protocol.SendPacket(node.netInfo.Conn, endFilePacket)
 
 					// start sending the next file
-					if uint64(len(node.transferInfo.Sending.FilesToSend)) == (node.transferInfo.Sending.CurrentFileID + 1) {
+					if uint64(len(node.transferInfo.Sending.FilesToSend)) == (node.transferInfo.Sending.CurrentFileIndex + 1) {
 						// all files has been sent
 						node.state.Stopped = true
 
@@ -409,7 +425,7 @@ func (node *Node) Start() {
 						protocol.SendPacket(node.netInfo.Conn, donePacket)
 
 					} else {
-						node.transferInfo.Sending.CurrentFileID++
+						node.transferInfo.Sending.CurrentFileIndex++
 					}
 
 				case nil:
@@ -418,8 +434,8 @@ func (node *Node) Start() {
 				default:
 					node.state.Stopped = true
 
-					currentFileID := node.transferInfo.Sending.CurrentFileID
-					fmt.Printf("An error occured while sending a piece of \"%s\": %s\n", node.transferInfo.Sending.FilesToSend[currentFileID].Name, err)
+					CurrentFileIndex := node.transferInfo.Sending.CurrentFileIndex
+					fmt.Printf("An error occured while sending a piece of \"%s\": %s\n", node.transferInfo.Sending.FilesToSend[CurrentFileIndex].Name, err)
 					panic(err)
 				}
 
@@ -454,7 +470,7 @@ func (node *Node) Start() {
 			incomingPacket, ok := <-node.packetPipe
 			if !ok {
 				fmt.Printf("The connection has been closed unexpectedly\n")
-				break
+				os.Exit(-1)
 			}
 
 			// if encryption key is set - decrypt packet on the spot
@@ -477,9 +493,23 @@ func (node *Node) Start() {
 					}
 
 					if file != nil {
-						fmt.Printf("\n| Filename: %s\n| Size: %.2f MB\n| Checksum: %s\n", file.Name, float32(file.Size)/1024/1024, file.Checksum)
+						size := float32(file.Size) / 1024 / 1024
+						sizeLevel := "MiB"
+						if size >= 1024 {
+							// GiB
+							size = size / 1024
+							sizeLevel = "GiB"
+						}
+						fmt.Printf("\n| Filename: %s\n| Size: %.3f %s\n| Checksum: %s\n", file.Name, size, sizeLevel, file.Checksum)
 					} else if dir != nil {
-						fmt.Printf("\n| Directory name: %s\n| Size: %.2f MB\n", dir.Name, float32(dir.Size)/1024/1024)
+						size := float32(dir.Size) / 1024 / 1024
+						sizeLevel := "MiB"
+						if size >= 1024 {
+							// GiB
+							size = size / 1024
+							sizeLevel = "GiB"
+						}
+						fmt.Printf("\n| Directory name: %s\n| Size: %.3f %s\n", dir.Name, size, sizeLevel)
 					}
 
 					var answer string
@@ -490,18 +520,18 @@ func (node *Node) Start() {
 					if strings.EqualFold(answer, "y") || answer == "" {
 						// yes
 
-						// in case it`s a directory - create it now
-						if dir != nil {
-							err = os.MkdirAll(filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name), os.ModePerm)
-							if err != nil {
-								// well, just download all files in the default downloads folder then
-								fmt.Printf("[ERROR] could not create a directory\n")
-							} else {
-								// also download everything in a newly created directory
-								node.transferInfo.Receiving.DownloadsPath = filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name)
-							}
+						// // in case it`s a directory - create it now
+						// if dir != nil {
+						// 	err = os.MkdirAll(filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name), os.ModePerm)
+						// 	if err != nil {
+						// 		// well, just download all files in the default downloads folder then
+						// 		fmt.Printf("[ERROR] could not create a directory\n")
+						// 	} else {
+						// 		// also download everything in a newly created directory
+						// 		node.transferInfo.Receiving.DownloadsPath = filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name)
+						// 	}
 
-						}
+						// }
 
 						// send aceptance packet
 						acceptancePacket := protocol.Packet{
@@ -547,44 +577,39 @@ func (node *Node) Start() {
 				if err != nil {
 					panic(err)
 				}
-				fullFilePath := filepath.Join(node.transferInfo.Receiving.DownloadsPath, file.Name)
+
+				file.Path, err = filepath.Abs(filepath.Join(node.transferInfo.Receiving.DownloadsPath, file.RelativeParentPath))
+				if err != nil {
+					panic(err)
+				}
+
+				// create all underlying directories right ahead
+				err = os.MkdirAll(filepath.Dir(file.Path), os.ModePerm)
+				if err != nil {
+					panic(err)
+				}
 
 				// check if the file already exists; if yes - remove it and replace with a new one
-				_, err = os.Stat(fullFilePath)
+				_, err = os.Stat(file.Path)
 				if err == nil {
 					// exists
 					// remove it
-					os.Remove(fullFilePath)
+					os.Remove(file.Path)
 				}
 
-				file.Path = fullFilePath
 				file.Open()
 
 				node.mutex.Lock()
 				node.transferInfo.Receiving.AcceptedFiles = append(node.transferInfo.Receiving.AcceptedFiles, file)
 				node.mutex.Unlock()
 
-			case protocol.HeaderDirectory:
-				// (TODO)
-
-				// directory
-				// dir, err := protocol.DecodeDirectoryPacket(incomingPacket)
-				// if err != nil {
-				// 	panic(err)
-				// }
-
-				// // add a new directory to downloads path
-				// node.transferInfo.Receiving.DownloadsPath = filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name)
-				// err = os.MkdirAll(node.transferInfo.Receiving.DownloadsPath, os.ModePerm)
-				// if err != nil {
-				// 	panic(err)
-				// }
-
 			case protocol.HeaderFileBytes:
 				// check if this file has been accepted to receive
-				fileIDReader := bytes.NewReader(incomingPacket.Body)
+
+				fileBytesBuffer := bytes.NewBuffer(incomingPacket.Body)
+
 				var fileID uint64
-				err := binary.Read(fileIDReader, binary.BigEndian, &fileID)
+				err := binary.Read(fileBytesBuffer, binary.BigEndian, &fileID)
 				if err != nil {
 					panic(err)
 				}
@@ -595,7 +620,7 @@ func (node *Node) Start() {
 
 						// append provided bytes to the file
 
-						fileBytes := incomingPacket.Body[8:]
+						fileBytes := fileBytesBuffer.Bytes()
 						_, err = acceptedFile.Handler.Write(fileBytes)
 						if err != nil {
 							panic(err)

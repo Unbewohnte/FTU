@@ -16,7 +16,8 @@ func DecodeFilePacket(filePacket *Packet) (*fsys.File, error) {
 	if filePacket.Header != HeaderFile {
 		return nil, ErrorWrongPacket
 	}
-	// FILE~(idInBinary)(filenameLengthInBinary)(filename)(filesize)(checksumLengthInBinary)checksum
+
+	//(id in binary)(filename length in binary)(filename)(filesize)(checksum length in binary)(checksum)(relative path to the upper directory size in binary if present)(relative path)
 
 	// retrieve data from packet body
 
@@ -64,12 +65,26 @@ func DecodeFilePacket(filePacket *Packet) (*fsys.File, error) {
 	}
 	checksum := string(checksumBytes)
 
+	// relative path
+	var relPathLength uint64
+	err = binary.Read(packetReader, binary.BigEndian, &relPathLength)
+	if err != nil {
+		return nil, err
+	}
+	relPathBytes := make([]byte, relPathLength)
+	_, err = packetReader.Read(relPathBytes)
+	if err != nil {
+		return nil, err
+	}
+	relPath := string(relPathBytes)
+
 	return &fsys.File{
-		ID:       fileID,
-		Name:     filename,
-		Size:     filesize,
-		Checksum: checksum,
-		Handler:  nil,
+		ID:                 fileID,
+		Name:               filename,
+		Size:               filesize,
+		Checksum:           checksum,
+		RelativeParentPath: relPath,
+		Handler:            nil,
 	}, nil
 }
 

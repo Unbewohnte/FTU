@@ -6,8 +6,7 @@ import (
 	"testing"
 )
 
-// Practically tests the whole protocol
-func TestTransfer(t *testing.T) {
+func Test_WriteRead(t *testing.T) {
 	packet := Packet{
 		Header: "randomheader",
 		Body:   []byte("fIlEnAmE.txt"),
@@ -57,7 +56,7 @@ func TestTransfer(t *testing.T) {
 	}
 }
 
-func TestBytesToPacket(t *testing.T) {
+func Test_BytesToPacket(t *testing.T) {
 	packet := Packet{
 		Header: HeaderFileBytes,
 		Body:   []byte("fIlEnAmE.txt"),

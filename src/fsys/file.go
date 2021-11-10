@@ -10,14 +10,14 @@ import (
 
 // A struct that represents the necessary file information for transportation through node
 type File struct {
-	ID         uint64 // Set manually
-	Name       string
-	Path       string
-	ParentPath string
-	Size       uint64
-	Checksum   string
-	Handler    *os.File // Set when .Open() is called
-	SentBytes  uint64   // Set manually during transportation
+	ID                 uint64 // Set manually
+	Name               string
+	Path               string
+	RelativeParentPath string // Relative path to the file, where the highest directory in the hierarchy is the upmost parent dir. Set manually
+	Size               uint64
+	Checksum           string
+	Handler            *os.File // Set when .Open() is called
+	SentBytes          uint64   // Set manually during transportation
 }
 
 var ErrorNotFile error = fmt.Errorf("not a file")
@@ -43,11 +43,10 @@ func GetFile(path string) (*File, error) {
 	}
 
 	file := File{
-		Name:       stats.Name(),
-		Path:       absPath,
-		ParentPath: filepath.Dir(absPath),
-		Size:       uint64(stats.Size()),
-		Handler:    nil,
+		Name:    stats.Name(),
+		Path:    absPath,
+		Size:    uint64(stats.Size()),
+		Handler: nil,
 	}
 
 	// get checksum

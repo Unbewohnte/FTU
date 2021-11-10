@@ -8,12 +8,12 @@ import (
 
 // A struct that represents the main information about a directory
 type Directory struct {
-	Name        string
-	Path        string
-	ParentPath  string
-	Size        uint64
-	Files       []*File
-	Directories []*Directory
+	Name               string
+	Path               string
+	Size               uint64
+	RelativeParentPath string // Relative path to the directory, where the highest point in the hierarchy is the upmost parent dir. Set manually
+	Files              []*File
+	Directories        []*Directory
 }
 
 var ErrorNotDirectory error = fmt.Errorf("not a directory")
@@ -37,7 +37,6 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 	directory := Directory{
 		Name:        stats.Name(),
 		Path:        absPath,
-		ParentPath:  filepath.Dir(absPath),
 		Directories: nil,
 		Files:       nil,
 	}
@@ -66,9 +65,13 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 					return nil, err
 				}
 
-				innerDirs = append(innerDirs, innerDir)
+				for _, file := range innerDir.Files {
+					file.RelativeParentPath = filepath.Join(directory.Name, innerDir.Name, file.Name)
+				}
 
 				directory.Size += innerDir.Size
+
+				innerDirs = append(innerDirs, innerDir)
 			}
 			// if not - skip the directory and only work with the files
 
@@ -80,9 +83,11 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 				return nil, err
 			}
 
-			innerFiles = append(innerFiles, innerFile)
+			innerFile.RelativeParentPath = filepath.Join(directory.Name, innerFile.Name)
 
 			directory.Size += innerFile.Size
+
+			innerFiles = append(innerFiles, innerFile)
 		}
 	}
 
@@ -91,8 +96,6 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 
 	return &directory, nil
 }
-
-var FILES []*File
 
 // Returns every file in that directory
 func (dir *Directory) GetAllFiles(recursively bool) []*File {
