@@ -87,3 +87,10 @@ const HeaderEndfile Header = "ENDFILE"
 // between a file and a directory.
 // ie: DIRECTORY~(dirname size in binary)(dirname)(dirsize)
 const HeaderDirectory Header = "DIRECTORY"
+
+// ALREADYHAVE
+// Sent by receiver in case there is the same file that already exists.
+// Sender upon receiving such packet with specified file ID must not send it.
+// Body must contain a file ID.
+// ie: ALREADYHAVE~(file ID in binary)
+const HeaderAlreadyHave Header = "ALREADYHAVE"
