@@ -1,3 +1,23 @@
+/*
+ftu - file transferring utility.
+Copyright (C) 2021  Kasyanov Nikolay Alexeevich (Unbewohnte (https://unbewohnte.xyz/))
+
+This file is a part of ftu
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 package main
 
 import (
@@ -9,17 +29,22 @@ import (
 	"github.com/Unbewohnte/ftu/node"
 )
 
-// flags
 var (
+	VERSION string = "v2.1.0"
+
+	versionInformation string = fmt.Sprintf("ftu %s\n\nCopyright (C) 2021  Kasyanov Nikolay Alexeevich (Unbewohnte (https://unbewohnte.xyz/))\nThis program comes with ABSOLUTELY NO WARRANTY.\nThis is free software, and you are welcome to redistribute it under certain conditions; type \"ftu -l\" for details.\n", VERSION)
+
+	//go:embed COPYING
+	licenseInformation string
+
+	// flags
 	PORT          *uint   = flag.Uint("p", 7270, "Specifies a port to work with")
-	PRINT_LICENSE *bool   = flag.Bool("l", false, "Prints a license text")
 	RECUSRIVE     *bool   = flag.Bool("r", false, "Recursively send a directory")
 	ADDRESS       *string = flag.String("a", "", "Specifies an address to connect to")
 	DOWNLOADS_DIR *string = flag.String("d", ".", "Downloads folder")
 	SEND          *string = flag.String("s", "", "Specify a file|directory to send")
-
-	//go:embed LICENSE
-	licenseText string
+	PRINT_VERSION *bool   = flag.Bool("v", false, "Print version information")
+	PRINT_LICENSE *bool   = flag.Bool("l", false, "Print license information")
 
 	isSending bool
 )
@@ -34,7 +59,8 @@ func init() {
 		fmt.Printf("| -a [ip_address|domain_name] address to connect to (cannot be used with -s)\n")
 		fmt.Printf("| -d [path_to_directory] where the files will be downloaded to (cannot be used with -s)\n")
 		fmt.Printf("| -s [path_to_file|directory] to send it (cannot be used with -a)\n")
-		fmt.Printf("| -l for license text\n\n\n")
+		fmt.Printf("| -l print license information\n")
+		fmt.Printf("| -v print version information\n\n\n")
 
 		fmt.Printf("[Examples]\n\n")
 
@@ -43,6 +69,9 @@ func init() {
 
 		fmt.Printf("| ftu -p 7277 -a 192.168.1.104 -d .\n")
 		fmt.Printf("| creates a node that will connect to 192.168.1.104:7277 and download served file|directory to the working directory\n\n")
+
+		fmt.Printf("| ftu -p 7277 -a 87.117.55.229 -d .\n")
+		fmt.Printf("| creates a node that will connect to 87.117.55.229:7277 and download served file|directory to the working directory\n\n")
 
 		fmt.Printf("| ftu -p 7277 -a 192.168.1.104 -d /home/user/Downloads/\n")
 		fmt.Printf("| creates a node that will connect to 192.168.1.104:7277 and download served file|directory to \"/home/user/Downloads/\"\n\n")
@@ -56,8 +85,13 @@ func init() {
 	}
 	flag.Parse()
 
+	if *PRINT_VERSION {
+		fmt.Println(versionInformation)
+		os.Exit(0)
+	}
+
 	if *PRINT_LICENSE {
-		fmt.Println(licenseText)
+		fmt.Println(licenseInformation)
 		os.Exit(0)
 	}
 

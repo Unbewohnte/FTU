@@ -4,7 +4,7 @@
 ---
 
 ## ● What is that ?
-A feature-poor P2P (decentralized) file sharing program, overcomplicated and an overengineered one.
+A P2P (decentralized) file sharing program, overcomplicated and an overengineered one.
 
 
 ## ● Why ?
@@ -54,7 +54,8 @@ Now you have ftu installed !
 - -a [ip_address|domain_name] address to connect to (cannot be used with -s)
 - -d [path_to_directory] where the files will be downloaded to (cannot be used with -s)
 - -s [path_to_file|directory] to send it (cannot be used with -a)
-- -l for license text
+- -v print version text
+- -l print license 
 
 ### ● Examples
 
@@ -81,21 +82,9 @@ creates a node that will send every file in the directory !RECUSRIVELY!
 
 ---
 
-## ● NOTE
-This is NOT intended to be a serious application. I'm learning and this is a product of my curiosity. If you're a beginner too, please don't try to find something useful in my code, I am not an expert in that regard.
-
-This utility works only if the sender side has a port-forwarding|virtual server enabled and configured. Fortunatelly, locally it works without any 
-additional set ups.
-
-I've created myself a lot of additional work by creating my own set of communication rules. The whole project could've been a lot easier to maintain
-and read if I've used a built-in, well-tested and easily integrated solutions, but I still enjoy it the way it is right now. I couldn't be able to
-learn so much and get practical experience by simply using http, ftp or whatever protocols there are out there.
-
----
-
 ## ● Inspired by [croc](https://github.com/schollz/croc)
 
 --- 
 
 ## ● License
-MIT
+GPLv3 license
