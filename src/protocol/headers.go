@@ -55,10 +55,18 @@ const HeaderDone Header = "DONE"
 
 // READY.
 // Sent by receiver when it has read and processed the last
-// FILEBYTES packet. The sender is not allowed to "spam" FILEBYTES
+// FILEBYTES packet or when it has information about all the files and it`s ready to
+// receive bytes (FILESINFODONE). The sender is not allowed to "spam" FILEBYTES
 // packets without the permission of receiver.
 // ie: READY!~
 const HeaderReady Header = "READY"
+
+// FILESINFODONE.
+// Sent by sender after it`s announced about all the files that are
+// going to be sent. It is not allowed to send any file bytes before
+// packet with this header was sent.
+// ie: FILESINFODONE~
+const HeaderFilesInfoDone Header = "FILESINFODONE"
 
 // BYE!.
 // Packet with this header can be sent both by receiver and sender.

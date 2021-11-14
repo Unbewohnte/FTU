@@ -354,8 +354,12 @@ func (node *Node) Start() {
 						if err != nil {
 							panic(err)
 						}
-
 					}
+
+					filesInfoDonePacket := protocol.Packet{
+						Header: protocol.HeaderFilesInfoDone,
+					}
+					protocol.SendPacket(node.netInfo.Conn, filesInfoDonePacket)
 
 				case false:
 					// send a filepacket of a single file
@@ -586,15 +590,6 @@ func (node *Node) Start() {
 							panic(err)
 						}
 
-						// notify the node that we`re ready to transportation. No need
-						// for encryption because the body is nil
-						err = protocol.SendPacket(node.netInfo.Conn, protocol.Packet{
-							Header: protocol.HeaderReady,
-						})
-						if err != nil {
-							panic(err)
-						}
-
 					} else {
 						// no
 
@@ -621,7 +616,7 @@ func (node *Node) Start() {
 					panic(err)
 				}
 
-				if file.RelativeParentPath == "" {
+				if strings.TrimSpace(file.RelativeParentPath) == "" {
 					// does not have a parent dir
 					file.Path = filepath.Join(node.transferInfo.Receiving.DownloadsPath, file.Name)
 				} else {
@@ -641,16 +636,19 @@ func (node *Node) Start() {
 					// check if it is the exact file
 					existingFileHandler, err := os.Open(file.Path)
 					if err != nil {
-						os.Remove(file.Path)
+						panic(err)
 					}
 
-					existingFileChecksum, _ := checksum.GetPartialCheckSum(existingFileHandler)
+					existingFileChecksum, err := checksum.GetPartialCheckSum(existingFileHandler)
+					if err != nil {
+						panic(err)
+					}
 
 					if existingFileChecksum == file.Checksum {
 						// it`s the exact same file. No need to receive it again
 						// notify the other node
 
-						fmt.Printf("Already have \"%s\". Skipping...\n\n", file.Name)
+						fmt.Printf("| Already have \"%s\". Skipping...\n\n", file.Name)
 
 						alreadyHavePacketBodyBuffer := new(bytes.Buffer)
 						binary.Write(alreadyHavePacketBodyBuffer, binary.BigEndian, file.ID)
@@ -660,12 +658,13 @@ func (node *Node) Start() {
 							Body:   alreadyHavePacketBodyBuffer.Bytes(),
 						}
 
-						encryptedBody, err := encryption.Encrypt(node.netInfo.EncryptionKey, alreadyHavePacket.Body)
-						if err != nil {
-							panic(err)
+						if node.netInfo.EncryptionKey != nil {
+							encryptedBody, err := encryption.Encrypt(node.netInfo.EncryptionKey, alreadyHavePacket.Body)
+							if err != nil {
+								panic(err)
+							}
+							alreadyHavePacket.Body = encryptedBody
 						}
-
-						alreadyHavePacket.Body = encryptedBody
 
 						protocol.SendPacket(node.netInfo.Conn, alreadyHavePacket)
 
@@ -719,6 +718,14 @@ func (node *Node) Start() {
 						}
 					}
 				}
+
+				readyPacket := protocol.Packet{
+					Header: protocol.HeaderReady,
+				}
+				protocol.SendPacket(node.netInfo.Conn, readyPacket)
+
+			case protocol.HeaderFilesInfoDone:
+				// have all information about the files
 
 				// notify the other node that this one is ready
 				err = protocol.SendPacket(node.netInfo.Conn, protocol.Packet{
