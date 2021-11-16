@@ -46,7 +46,7 @@ type nodeInnerstates struct {
 }
 
 // netInfowork specific settings
-type netInfoInfo struct {
+type netInfo struct {
 	ConnAddr      string   // address to connect to. Does not include port
 	Conn          net.Conn // the core TCP connection of the node. Self-explanatory
 	Port          uint     // a port to connect to/listen on
@@ -55,12 +55,11 @@ type netInfoInfo struct {
 
 // Sending-side node information
 type sending struct {
-	ServingPath  string // path to the thing that will be sent
-	IsDirectory  bool   // is ServingPath a directory
-	Recursive    bool   // recursively send directory
-	CanSendBytes bool   // is the other node ready to receive another piece
-	FilesToSend  []*fsys.File
-	// CurrentFileIndex uint64 // an index of a file with a specific ID that is currently being transported
+	ServingPath   string // path to the thing that will be sent
+	IsDirectory   bool   // is ServingPath a directory
+	Recursive     bool   // recursively send directory
+	CanSendBytes  bool   // is the other node ready to receive another piece
+	FilesToSend   []*fsys.File
 	CurrentFileID uint64 // an id of a file that is currently being transported
 }
 
@@ -81,7 +80,7 @@ type Node struct {
 	mutex        *sync.Mutex
 	packetPipe   chan *protocol.Packet // a way to receive incoming packets from another goroutine
 	isSending    bool                  // sending or a receiving node
-	netInfo      *netInfoInfo
+	netInfo      *netInfo
 	state        *nodeInnerstates
 	transferInfo *transferInfo
 }
@@ -122,7 +121,7 @@ func NewNode(options *NodeOptions) (*Node, error) {
 		mutex:      &sync.Mutex{},
 		packetPipe: make(chan *protocol.Packet, 100),
 		isSending:  options.IsSending,
-		netInfo: &netInfoInfo{
+		netInfo: &netInfo{
 			Port:          options.WorkingPort,
 			ConnAddr:      options.ClientSide.ConnectionAddr,
 			EncryptionKey: nil,
@@ -153,14 +152,14 @@ func (node *Node) connect() error {
 		node.netInfo.Port = 7270
 	}
 
-	fmt.Printf("Connecting to %s:%d...\n", node.netInfo.ConnAddr, node.netInfo.Port)
+	fmt.Printf("\nConnecting to %s:%d...", node.netInfo.ConnAddr, node.netInfo.Port)
 
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", node.netInfo.ConnAddr, node.netInfo.Port), time.Second*5)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Connected\n")
+	fmt.Printf("\nConnected")
 
 	node.netInfo.Conn = conn
 
@@ -202,10 +201,30 @@ func (node *Node) waitForConnection() error {
 		return err
 	}
 
-	fmt.Printf("New connection from %s\n", connection.RemoteAddr().String())
+	fmt.Printf("\nNew connection from %s", connection.RemoteAddr().String())
 
 	node.netInfo.Conn = connection
 
+	return nil
+}
+
+// Prints information about the transfer after defined delay
+func (node *Node) printTransferInfo(delay time.Duration) error {
+	time.Sleep(delay)
+
+	switch node.isSending {
+	case true:
+		if !node.state.AllowedToTransfer {
+			break
+		}
+		fmt.Printf("\r| files(s) left to send: %4d", len(node.transferInfo.Sending.FilesToSend))
+
+	case false:
+		if len(node.transferInfo.Receiving.AcceptedFiles) <= 0 {
+			break
+		}
+		fmt.Printf("\r| file(s) left to receive: %4d", len(node.transferInfo.Receiving.AcceptedFiles))
+	}
 	return nil
 }
 
@@ -245,7 +264,7 @@ func (node *Node) Start() {
 				sizeLevel = "GiB"
 			}
 
-			fmt.Printf("Sending \"%s\" (%.3f %s) locally on %s:%d\n", dirToSend.Name, size, sizeLevel, localIP, node.netInfo.Port)
+			fmt.Printf("\nSending \"%s\" (%.3f %s) locally on %s:%d", dirToSend.Name, size, sizeLevel, localIP, node.netInfo.Port)
 		} else {
 			size := float32(fileToSend.Size) / 1024 / 1024
 			sizeLevel := "MiB"
@@ -254,7 +273,7 @@ func (node *Node) Start() {
 				size = size / 1024
 				sizeLevel = "GiB"
 			}
-			fmt.Printf("Sending \"%s\" (%.3f %s) locally on %s:%d\n", fileToSend.Name, size, sizeLevel, localIP, node.netInfo.Port)
+			fmt.Printf("\nSending \"%s\" (%.3f %s) locally on %s:%d and remotely", fileToSend.Name, size, sizeLevel, localIP, node.netInfo.Port)
 
 		}
 
@@ -267,7 +286,7 @@ func (node *Node) Start() {
 		// generate and send encryption key
 		encrKey := encryption.Generate32AESkey()
 		node.netInfo.EncryptionKey = encrKey
-		fmt.Printf("Generated encryption key: %s\n", encrKey)
+		fmt.Printf("\nGenerated encryption key: %s\n", encrKey)
 
 		err = protocol.SendEncryptionKey(node.netInfo.Conn, encrKey)
 		if err != nil {
@@ -290,7 +309,7 @@ func (node *Node) Start() {
 			// receive incoming packets and decrypt them if necessary
 			incomingPacket, ok := <-node.packetPipe
 			if !ok {
-				fmt.Printf("The connection has been closed unexpectedly\n")
+				fmt.Printf("\nThe connection has been closed unexpectedly")
 				os.Exit(-1.)
 			}
 
@@ -313,7 +332,7 @@ func (node *Node) Start() {
 				// the receiving node has accepted the transfer
 				node.state.AllowedToTransfer = true
 
-				fmt.Printf("Transfer allowed. Sending...\n")
+				fmt.Printf("\nTransfer allowed. Sending...")
 
 				// notify it about all the files that are going to be sent
 				switch node.transferInfo.Sending.IsDirectory {
@@ -393,11 +412,11 @@ func (node *Node) Start() {
 			case protocol.HeaderReject:
 				node.state.Stopped = true
 
-				fmt.Printf("Transfer rejected. Disconnecting...\n")
+				fmt.Printf("\nTransfer rejected. Disconnecting...")
 
 			case protocol.HeaderDisconnecting:
 				node.state.Stopped = true
-				fmt.Printf("%s disconnected\n", node.netInfo.Conn.RemoteAddr())
+				fmt.Printf("\n%s disconnected", node.netInfo.Conn.RemoteAddr())
 
 			case protocol.HeaderAlreadyHave:
 				// the other node already has a file with such ID.
@@ -425,7 +444,7 @@ func (node *Node) Start() {
 					Header: protocol.HeaderDone,
 				})
 
-				fmt.Printf("Transfer ended successfully\n")
+				fmt.Printf("\nTransfer ended successfully")
 
 				node.state.Stopped = true
 
@@ -482,11 +501,12 @@ func (node *Node) Start() {
 				default:
 					node.state.Stopped = true
 
-					fmt.Printf("An error occured while sending a piece of \"%s\": %s\n", node.transferInfo.Sending.FilesToSend[currentFileIndex].Name, err)
+					fmt.Printf("\nAn error occured while sending a piece of \"%s\": %s", node.transferInfo.Sending.FilesToSend[currentFileIndex].Name, err)
 					panic(err)
 				}
-
 			}
+
+			go node.printTransferInfo(time.Second)
 		}
 
 	case false:
@@ -495,7 +515,7 @@ func (node *Node) Start() {
 		// connect to the sending node
 		err := node.connect()
 		if err != nil {
-			fmt.Printf("Could not connect to %s:%d\n", node.netInfo.ConnAddr, node.netInfo.Port)
+			fmt.Printf("\nCould not connect to %s:%d", node.netInfo.ConnAddr, node.netInfo.Port)
 			os.Exit(-1)
 		}
 
@@ -516,7 +536,7 @@ func (node *Node) Start() {
 			// receive incoming packets and decrypt them if necessary
 			incomingPacket, ok := <-node.packetPipe
 			if !ok {
-				fmt.Printf("The connection has been closed unexpectedly\n")
+				fmt.Printf("\nThe connection has been closed unexpectedly")
 				os.Exit(-1)
 			}
 
@@ -572,7 +592,7 @@ func (node *Node) Start() {
 							err = os.MkdirAll(filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name), os.ModePerm)
 							if err != nil {
 								// well, just download all files in the default downloads folder then
-								fmt.Printf("[ERROR] could not create a directory\n")
+								fmt.Printf("\n[ERROR] could not create a directory")
 							} else {
 								// also download everything in a newly created directory
 								node.transferInfo.Receiving.DownloadsPath = filepath.Join(node.transferInfo.Receiving.DownloadsPath, dir.Name)
@@ -647,8 +667,6 @@ func (node *Node) Start() {
 					if existingFileChecksum == file.Checksum {
 						// it`s the exact same file. No need to receive it again
 						// notify the other node
-
-						fmt.Printf("| Already have \"%s\". Skipping...\n\n", file.Name)
 
 						alreadyHavePacketBodyBuffer := new(bytes.Buffer)
 						binary.Write(alreadyHavePacketBodyBuffer, binary.BigEndian, file.ID)
@@ -765,13 +783,11 @@ func (node *Node) Start() {
 							panic(err)
 						}
 
-						fmt.Printf("\n| Checking hashes for file \"%s\"\n", acceptedFile.Name)
 						if realChecksum != acceptedFile.Checksum {
-							fmt.Printf("| %s --- %s file is corrupted\n", realChecksum, acceptedFile.Checksum)
+							fmt.Printf("\n| %s is corrupted", acceptedFile.Name)
 							acceptedFile.Close()
 							break
 						} else {
-							fmt.Printf("| %s --- %s\n", realChecksum, acceptedFile.Checksum)
 							acceptedFile.Close()
 							break
 						}
@@ -797,7 +813,7 @@ func (node *Node) Start() {
 
 				node.netInfo.EncryptionKey = encrKey
 
-				fmt.Printf("Got an encryption key: %s\n", encrKey)
+				fmt.Printf("\nGot an encryption key: %s", encrKey)
 
 			case protocol.HeaderDone:
 				node.mutex.Lock()
@@ -809,9 +825,9 @@ func (node *Node) Start() {
 				node.state.Stopped = true
 				node.mutex.Unlock()
 
-				fmt.Printf("%s disconnected\n", node.netInfo.Conn.RemoteAddr())
+				fmt.Printf("\n%s disconnected", node.netInfo.Conn.RemoteAddr())
 			}
+			go node.printTransferInfo(time.Second)
 		}
-
 	}
 }
