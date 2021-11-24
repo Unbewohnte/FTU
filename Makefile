@@ -18,9 +18,9 @@ pkgrelease:
 	mkdir $(RELEASE_DIR)/darwin_amd64
 	mkdir $(RELEASE_DIR)/windows_amd64
 
-	cd $(SRC_DIR) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ftu_linux_amd64 && mv ftu_linux_amd64 ../$(RELEASE_DIR)/linux_amd64
-	cd $(SRC_DIR) && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o ftu_darwin_amd64 && mv ftu_darwin_amd64 ../$(RELEASE_DIR)/darwin_amd64
-	cd $(SRC_DIR) && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ftu_windows_amd64.exe && mv ftu_windows_amd64.exe ../$(RELEASE_DIR)/windows_amd64
+	cd $(SRC_DIR) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ftu && mv ftu ../$(RELEASE_DIR)/linux_amd64
+	cd $(SRC_DIR) && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o ftu && mv ftu ../$(RELEASE_DIR)/darwin_amd64
+	cd $(SRC_DIR) && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ftu.exe && mv ftu.exe ../$(RELEASE_DIR)/windows_amd64
 
 	cp $(LICENSE_FILE) $(RELEASE_DIR)/linux_amd64
 	cp $(INSTALLATION_SCRIPT) $(RELEASE_DIR)/linux_amd64
