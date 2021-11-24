@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	VERSION string = "v2.1.1"
+	VERSION string = "v2.1.2"
 
 	versionInformation string = fmt.Sprintf("ftu %s\n\nCopyright (C) 2021  Kasyanov Nikolay Alexeevich (Unbewohnte (https://unbewohnte.xyz/))\nThis program comes with ABSOLUTELY NO WARRANTY.\nThis is free software, and you are welcome to redistribute it under certain conditions; type \"ftu -l\" for details.\n", VERSION)
 
@@ -43,6 +43,7 @@ var (
 	ADDRESS       *string = flag.String("a", "", "Specifies an address to connect to")
 	DOWNLOADS_DIR *string = flag.String("d", ".", "Downloads folder")
 	SEND          *string = flag.String("s", "", "Specify a file|directory to send")
+	VERBOSE       *bool   = flag.Bool("vp", false, "Turn on/off verbose output")
 	PRINT_VERSION *bool   = flag.Bool("v", false, "Print version information")
 	PRINT_LICENSE *bool   = flag.Bool("l", false, "Print license information")
 
@@ -59,6 +60,7 @@ func init() {
 		fmt.Printf("| -a [ip_address|domain_name] address to connect to (cannot be used with -s)\n")
 		fmt.Printf("| -d [path_to_directory] where the files will be downloaded to (cannot be used with -s)\n")
 		fmt.Printf("| -s [path_to_file|directory] to send it (cannot be used with -a)\n")
+		fmt.Printf("| -vp [true|false] to turn off|on verbose output")
 		fmt.Printf("| -l print license information\n")
 		fmt.Printf("| -v print version information\n\n\n")
 
@@ -81,7 +83,6 @@ func init() {
 
 		fmt.Printf("| ftu -r -s /home/user/homework/\n")
 		fmt.Printf("| creates a node that will send every file in the directory !RECUSRIVELY!\n\n\n")
-
 	}
 	flag.Parse()
 
@@ -118,8 +119,9 @@ func init() {
 
 func main() {
 	nodeOptions := node.NodeOptions{
-		IsSending:   isSending,
-		WorkingPort: *PORT,
+		VerboseOutput: *VERBOSE,
+		IsSending:     isSending,
+		WorkingPort:   *PORT,
 		ServerSide: &node.ServerSideNodeOptions{
 			ServingPath: *SEND,
 			Recursive:   *RECUSRIVE,

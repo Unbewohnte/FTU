@@ -40,7 +40,7 @@ install: all
 	cp $(EXE_NAME) $(INSTALLATION_DIR)
 
 test:
-	cd $(SRC_DIR) && go test ./... ; cd ..
+	cd $(SRC_DIR) && go test ./...
 
 clean:
 	rm $(EXE_NAME)

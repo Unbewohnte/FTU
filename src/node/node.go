@@ -77,12 +77,13 @@ type transferInfo struct {
 
 // Sender and receiver in one type !
 type Node struct {
-	mutex        *sync.Mutex
-	packetPipe   chan *protocol.Packet // a way to receive incoming packets from another goroutine
-	isSending    bool                  // sending or a receiving node
-	netInfo      *netInfo
-	state        *nodeInnerstates
-	transferInfo *transferInfo
+	verboseOutput bool
+	mutex         *sync.Mutex
+	packetPipe    chan *protocol.Packet // a way to receive incoming packets from another goroutine
+	isSending     bool                  // sending or a receiving node
+	netInfo       *netInfo
+	state         *nodeInnerstates
+	transferInfo  *transferInfo
 }
 
 // Creates a new either a sending or receiving node with specified options
@@ -118,9 +119,10 @@ func NewNode(options *NodeOptions) (*Node, error) {
 	}
 
 	node := Node{
-		mutex:      &sync.Mutex{},
-		packetPipe: make(chan *protocol.Packet, 100),
-		isSending:  options.IsSending,
+		verboseOutput: options.VerboseOutput,
+		mutex:         &sync.Mutex{},
+		packetPipe:    make(chan *protocol.Packet, 100),
+		isSending:     options.IsSending,
 		netInfo: &netInfo{
 			Port:          options.WorkingPort,
 			ConnAddr:      options.ClientSide.ConnectionAddr,
@@ -302,6 +304,7 @@ func (node *Node) Start() {
 		// mainloop
 		for {
 			if node.state.Stopped {
+				fmt.Printf("\n")
 				node.disconnect()
 				break
 			}
@@ -309,7 +312,7 @@ func (node *Node) Start() {
 			// receive incoming packets and decrypt them if necessary
 			incomingPacket, ok := <-node.packetPipe
 			if !ok {
-				fmt.Printf("\nThe connection has been closed unexpectedly")
+				fmt.Printf("\nThe connection has been closed unexpectedly\n")
 				os.Exit(-1.)
 			}
 
@@ -373,12 +376,20 @@ func (node *Node) Start() {
 						if err != nil {
 							panic(err)
 						}
+
+						if node.verboseOutput {
+							fmt.Printf("\n[File] Sent filepacket for \"%s\"", file.Name)
+						}
 					}
 
 					filesInfoDonePacket := protocol.Packet{
 						Header: protocol.HeaderFilesInfoDone,
 					}
 					protocol.SendPacket(node.netInfo.Conn, filesInfoDonePacket)
+
+					if node.verboseOutput {
+						fmt.Printf("\n[File] Done sending filepackets")
+					}
 
 				case false:
 					// send a filepacket of a single file
@@ -407,11 +418,18 @@ func (node *Node) Start() {
 						panic(err)
 					}
 
+					if node.verboseOutput {
+						fmt.Printf("\n[File] Sent filepacket for \"%s\"", fileToSend.Name)
+					}
+
+					if node.verboseOutput {
+						fmt.Printf("\n[File] Done sending filepackets")
+					}
+
 				}
 
 			case protocol.HeaderReject:
 				node.state.Stopped = true
-
 				fmt.Printf("\nTransfer rejected. Disconnecting...")
 
 			case protocol.HeaderDisconnecting:
@@ -431,9 +449,17 @@ func (node *Node) Start() {
 						node.transferInfo.Sending.FilesToSend = append(node.transferInfo.Sending.FilesToSend[:index], node.transferInfo.Sending.FilesToSend[index+1:]...)
 
 						node.transferInfo.Sending.CurrentFileID++
+
+						if node.verboseOutput {
+							fmt.Printf("\n[File] receiver already has \"%s\"", fileToSend.Name)
+						}
 					}
 				}
 
+			}
+
+			if !node.verboseOutput {
+				go node.printTransferInfo(time.Second)
 			}
 
 			// Transfer section
@@ -445,7 +471,6 @@ func (node *Node) Start() {
 				})
 
 				fmt.Printf("\nTransfer ended successfully")
-
 				node.state.Stopped = true
 
 				continue
@@ -454,7 +479,6 @@ func (node *Node) Start() {
 			// if allowed to transfer and the other node is ready to receive packets - send one piece
 			// and wait for it to be ready again
 			if node.state.AllowedToTransfer && node.transferInfo.Sending.CanSendBytes {
-
 				// sending a piece of a single file
 
 				// determine an index of a file with current ID
@@ -470,6 +494,11 @@ func (node *Node) Start() {
 				switch err {
 				case protocol.ErrorSentAll:
 					// the file has been sent fully
+
+					if node.verboseOutput {
+						fmt.Printf("\n[File] fully sent \"%s\" -- %d bytes", node.transferInfo.Sending.FilesToSend[currentFileIndex].Name, node.transferInfo.Sending.FilesToSend[currentFileIndex].Size)
+					}
+
 					fileIDBuff := new(bytes.Buffer)
 					err = binary.Write(fileIDBuff, binary.BigEndian, node.transferInfo.Sending.FilesToSend[currentFileIndex].ID)
 					if err != nil {
@@ -505,8 +534,6 @@ func (node *Node) Start() {
 					panic(err)
 				}
 			}
-
-			go node.printTransferInfo(time.Second)
 		}
 
 	case false:
@@ -529,6 +556,7 @@ func (node *Node) Start() {
 			node.mutex.Unlock()
 
 			if stopped {
+				fmt.Printf("\n")
 				node.disconnect()
 				break
 			}
@@ -536,7 +564,7 @@ func (node *Node) Start() {
 			// receive incoming packets and decrypt them if necessary
 			incomingPacket, ok := <-node.packetPipe
 			if !ok {
-				fmt.Printf("\nThe connection has been closed unexpectedly")
+				fmt.Printf("\nThe connection has been closed unexpectedly\n")
 				os.Exit(-1)
 			}
 
@@ -636,6 +664,10 @@ func (node *Node) Start() {
 					panic(err)
 				}
 
+				if node.verboseOutput {
+					fmt.Printf("\n[File] Received info on \"%s\" - %d bytes", file.Name, file.Size)
+				}
+
 				if strings.TrimSpace(file.RelativeParentPath) == "" {
 					// does not have a parent dir
 					file.Path = filepath.Join(node.transferInfo.Receiving.DownloadsPath, file.Name)
@@ -685,6 +717,10 @@ func (node *Node) Start() {
 						}
 
 						protocol.SendPacket(node.netInfo.Conn, alreadyHavePacket)
+
+						if node.verboseOutput {
+							fmt.Printf("\n[File] already have \"%s\"", file.Name)
+						}
 
 					} else {
 						// not the same file. Remove it and await new bytes
@@ -769,6 +805,10 @@ func (node *Node) Start() {
 					if acceptedFile.ID == fileID {
 						// accepted
 
+						if node.verboseOutput {
+							fmt.Printf("\n[File] fully received \"%s\" -- %d bytes", acceptedFile.Name, acceptedFile.Size)
+						}
+
 						err = acceptedFile.Open()
 						if err != nil {
 							panic(err)
@@ -784,7 +824,7 @@ func (node *Node) Start() {
 						}
 
 						if realChecksum != acceptedFile.Checksum {
-							fmt.Printf("\n| %s is corrupted", acceptedFile.Name)
+							fmt.Printf("\n| \"%s\" is corrupted", acceptedFile.Name)
 							acceptedFile.Close()
 							break
 						} else {
@@ -827,7 +867,10 @@ func (node *Node) Start() {
 
 				fmt.Printf("\n%s disconnected", node.netInfo.Conn.RemoteAddr())
 			}
-			go node.printTransferInfo(time.Second)
+
+			if !node.verboseOutput {
+				go node.printTransferInfo(time.Second)
+			}
 		}
 	}
 }

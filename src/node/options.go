@@ -32,8 +32,9 @@ type ClientSideNodeOptions struct {
 
 // Options to configure the node
 type NodeOptions struct {
-	IsSending   bool
-	WorkingPort uint
-	ServerSide  *ServerSideNodeOptions
-	ClientSide  *ClientSideNodeOptions
+	IsSending     bool
+	WorkingPort   uint
+	VerboseOutput bool
+	ServerSide    *ServerSideNodeOptions
+	ClientSide    *ClientSideNodeOptions
 }
