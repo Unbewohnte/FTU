@@ -32,6 +32,9 @@ pkgrelease:
 	cd $(RELEASE_DIR) && zip -r darwin_amd64 darwin_amd64/
 	cd $(RELEASE_DIR) && zip -r windows_amd64 windows_amd64/
 
+	rm -rf $(RELEASE_DIR)/linux_amd64
+	rm -rf $(RELEASE_DIR)/darwin_amd64
+	rm -rf $(RELEASE_DIR)/windows_amd64
 
 race:
 	cd $(SRC_DIR) && go build -race && mv $(EXE_NAME) ..
@@ -43,4 +46,4 @@ test:
 	cd $(SRC_DIR) && go test ./...
 
 clean:
-	rm $(EXE_NAME)
+	rm -rf $(EXE_NAME) $(RELEASE_DIR)
