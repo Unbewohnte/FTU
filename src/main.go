@@ -60,7 +60,7 @@ func init() {
 		fmt.Printf("| -a [ip_address|domain_name] address to connect to (cannot be used with -s)\n")
 		fmt.Printf("| -d [path_to_directory] where the files will be downloaded to (cannot be used with -s)\n")
 		fmt.Printf("| -s [path_to_file|directory] to send it (cannot be used with -a)\n")
-		fmt.Printf("| -vp [true|false] to turn on|off verbose output")
+		fmt.Printf("| -vp [true|false] to turn on|off verbose output\n")
 		fmt.Printf("| -l print license information\n")
 		fmt.Printf("| -v print version information\n\n\n")
 
