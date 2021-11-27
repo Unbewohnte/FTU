@@ -54,7 +54,7 @@ Now you have ftu installed !
 - -a [ip_address|domain_name] address to connect to (cannot be used with -s)
 - -d [path_to_directory] where the files will be downloaded to (cannot be used with -s)
 - -s [path_to_file|directory] to send it (cannot be used with -a)
-- -vp [true|false] to turn on|off verbose output
+- -? [true|false] to turn on|off verbose output
 - -v print version text
 - -l print license 
 

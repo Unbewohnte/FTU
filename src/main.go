@@ -43,7 +43,7 @@ var (
 	ADDRESS       *string = flag.String("a", "", "Specifies an address to connect to")
 	DOWNLOADS_DIR *string = flag.String("d", ".", "Downloads folder")
 	SEND          *string = flag.String("s", "", "Specify a file|directory to send")
-	VERBOSE       *bool   = flag.Bool("vp", false, "Turn on/off verbose output")
+	VERBOSE       *bool   = flag.Bool("?", false, "Turn on/off verbose output")
 	PRINT_VERSION *bool   = flag.Bool("v", false, "Print version information")
 	PRINT_LICENSE *bool   = flag.Bool("l", false, "Print license information")
 
@@ -60,7 +60,7 @@ func init() {
 		fmt.Printf("| -a [ip_address|domain_name] address to connect to (cannot be used with -s)\n")
 		fmt.Printf("| -d [path_to_directory] where the files will be downloaded to (cannot be used with -s)\n")
 		fmt.Printf("| -s [path_to_file|directory] to send it (cannot be used with -a)\n")
-		fmt.Printf("| -vp [true|false] to turn on|off verbose output\n")
+		fmt.Printf("| -? [true|false] to turn on|off verbose output\n")
 		fmt.Printf("| -l print license information\n")
 		fmt.Printf("| -v print version information\n\n\n")
 

@@ -380,6 +380,8 @@ func (node *Node) Start() {
 						if node.verboseOutput {
 							fmt.Printf("\n[File] Sent filepacket for \"%s\"", file.Name)
 						}
+
+						time.Sleep(time.Microsecond * 3)
 					}
 
 					filesInfoDonePacket := protocol.Packet{
