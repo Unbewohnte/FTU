@@ -420,6 +420,11 @@ func (node *Node) Start() {
 						panic(err)
 					}
 
+					filesInfoDonePacket := protocol.Packet{
+						Header: protocol.HeaderFilesInfoDone,
+					}
+					protocol.SendPacket(node.netInfo.Conn, filesInfoDonePacket)
+
 					if node.verboseOutput {
 						fmt.Printf("\n[File] Sent filepacket for \"%s\"", fileToSend.Name)
 					}
