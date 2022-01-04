@@ -29,7 +29,7 @@ type Header string
 //// and (size) is 8 bytes long big-endian binary encoded uint64
 
 // ENCRKEY.
-// The FIRST header to be sent. Sent immediately after the connection has been established
+// The FIRST header to be sent if you`re going to encrypt the transfer. Sent immediately after the connection has been established
 // by sender. Body contains a size of a key and the key itself.
 // ie: ENCRKEY~(size)(encryption key)
 const HeaderEncryptionKey Header = "ENCRKEY"
@@ -41,7 +41,7 @@ const HeaderReject Header = "REJECT"
 
 // ACCEPT.
 // The opposite of the previous REJECT. Sent by receiver when
-// he has agreed to download the file|directory.
+// it has agreed to download the file|directory.
 // ie: ACCEPT~
 const HeaderAccept Header = "ACCEPT"
 
@@ -55,18 +55,10 @@ const HeaderDone Header = "DONE"
 
 // READY.
 // Sent by receiver when it has read and processed the last
-// FILEBYTES packet or when it has information about all the files and it`s ready to
-// receive bytes (FILESINFODONE). The sender is not allowed to "spam" FILEBYTES
-// packets without the permission of receiver.
+// FILEBYTES or FILE packet. The sender is not allowed to "spam" FILEBYTES or FILE
+// packets without the permission (packet with this header) from receiver.
 // ie: READY!~
 const HeaderReady Header = "READY"
-
-// FILESINFODONE.
-// Sent by sender after it`s announced about all the files that are
-// going to be sent. It is not allowed to send any file bytes before
-// packet with this header was sent.
-// ie: FILESINFODONE~
-const HeaderFilesInfoDone Header = "FILESINFODONE"
 
 // BYE!.
 // Packet with this header can be sent both by receiver and sender.

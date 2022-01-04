@@ -137,13 +137,15 @@ func SendTransferOffer(connection net.Conn, file *fsys.File, dir *fsys.Directory
 
 var ErrorSentAll error = fmt.Errorf("sent the whole file")
 
-// sends a piece of file to the connection; The next calls will send
+// Sends a piece of file to the connection; The next calls will send
 // another piece util the file has been fully sent. If encrKey is not nil - encrypts each packet with
-// this key
-func SendPiece(file *fsys.File, connection net.Conn, encrKey []byte) error {
+// this key. Returns amount of filebytes written to the connection
+func SendPiece(file *fsys.File, connection net.Conn, encrKey []byte) (uint64, error) {
+	var sentBytes uint64 = 0
+
 	err := file.Open()
 	if err != nil {
-		return err
+		return sentBytes, err
 	}
 	defer file.Close()
 
@@ -152,7 +154,7 @@ func SendPiece(file *fsys.File, connection net.Conn, encrKey []byte) error {
 	}
 
 	if file.Size == file.SentBytes {
-		return ErrorSentAll
+		return sentBytes, ErrorSentAll
 	}
 
 	fileBytesPacket := Packet{
@@ -164,7 +166,7 @@ func SendPiece(file *fsys.File, connection net.Conn, encrKey []byte) error {
 	// write file ID first
 	err = binary.Write(packetBodyBuff, binary.BigEndian, file.ID)
 	if err != nil {
-		return err
+		return sentBytes, err
 	}
 
 	// fill the remaining space of packet with the contents of a file
@@ -183,9 +185,10 @@ func SendPiece(file *fsys.File, connection net.Conn, encrKey []byte) error {
 
 	read, err := file.Handler.ReadAt(fileBytes, int64(file.SentBytes))
 	if err != nil {
-		return err
+		return sentBytes, err
 	}
 	file.SentBytes += uint64(read)
+	sentBytes += uint64(canSendBytes)
 
 	packetBodyBuff.Write(fileBytes)
 
@@ -194,15 +197,15 @@ func SendPiece(file *fsys.File, connection net.Conn, encrKey []byte) error {
 	if encrKey != nil {
 		err = fileBytesPacket.EncryptBody(encrKey)
 		if err != nil {
-			return err
+			return sentBytes, err
 		}
 	}
 
 	// send it to the other side
 	err = SendPacket(connection, fileBytesPacket)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return sentBytes, nil
 }
