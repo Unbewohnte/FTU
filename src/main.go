@@ -1,6 +1,6 @@
 /*
 ftu - file transferring utility.
-Copyright (C) 2021  Kasyanov Nikolay Alexeevich (Unbewohnte (https://unbewohnte.xyz/))
+Copyright (C) 2021,2022  Kasyanov Nikolay Alexeevich (Unbewohnte (https://unbewohnte.xyz/))
 
 This file is a part of ftu
 
@@ -30,9 +30,9 @@ import (
 )
 
 var (
-	VERSION string = "v2.2.0"
+	VERSION string = "v2.2.1"
 
-	versionInformation string = fmt.Sprintf("ftu %s\n\nCopyright (C) 2021  Kasyanov Nikolay Alexeevich (Unbewohnte (https://unbewohnte.xyz/))\nThis program comes with ABSOLUTELY NO WARRANTY.\nThis is free software, and you are welcome to redistribute it under certain conditions; type \"ftu -l\" for details.\n", VERSION)
+	versionInformation string = fmt.Sprintf("ftu %s\n\nCopyright (C) 2021,2022  Kasyanov Nikolay Alexeevich (Unbewohnte (https://unbewohnte.xyz/))\nThis program comes with ABSOLUTELY NO WARRANTY.\nThis is free software, and you are welcome to redistribute it under certain conditions; type \"ftu -l\" for details.\n", VERSION)
 
 	//go:embed COPYING
 	licenseInformation string
@@ -103,7 +103,7 @@ func init() {
 	}
 
 	if *SEND != "" && *ADDRESS != "" {
-		fmt.Printf("Can`t send and receive at the same time. Specify only -s or -a\n")
+		fmt.Printf("Can`t send and receive at the same time. Specify either -s or -a\n")
 		os.Exit(-1)
 	}
 
