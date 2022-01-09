@@ -81,10 +81,6 @@ creates a node that will send every file in the directory !RECUSRIVELY!
 
 `make test` or in "src" directory `go test ./...`
 
----
-
-## ● Inspired by [croc](https://github.com/schollz/croc)
-
 --- 
 
 ## ● License
