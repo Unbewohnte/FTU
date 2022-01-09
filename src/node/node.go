@@ -315,6 +315,10 @@ func (node *Node) send() {
 			break
 		}
 
+		if !node.verboseOutput {
+			go node.printTransferInfo(time.Second)
+		}
+
 		// receive incoming packets and decrypt them if necessary
 		incomingPacket, ok := <-node.packetPipe
 		if !ok {
@@ -395,12 +399,13 @@ func (node *Node) send() {
 
 					node.transferInfo.Sending.SentBytes += fileToSend.Size
 
+					node.transferInfo.Sending.InTransfer = false
+
 					if node.verboseOutput {
 						fmt.Printf("\n[File] receiver already has \"%s\"", fileToSend.Name)
 					}
 				}
 			}
-
 		}
 
 		// Transfer section
@@ -411,7 +416,6 @@ func (node *Node) send() {
 				Header: protocol.HeaderDone,
 			})
 
-			fmt.Printf("\nTransfer ended successfully")
 			node.stopped = true
 
 			continue
@@ -449,10 +453,6 @@ func (node *Node) send() {
 			// initiate the transfer for this file on the next iteration
 			node.transferInfo.Sending.InTransfer = true
 			continue
-		}
-
-		if !node.verboseOutput {
-			go node.printTransferInfo(time.Second)
 		}
 
 		// if allowed to transfer and the other node is ready to receive packets - send one piece
@@ -542,6 +542,10 @@ func (node *Node) receive() {
 			fmt.Printf("\n")
 			node.disconnect()
 			break
+		}
+
+		if !node.verboseOutput && node.transferInfo.Receiving.ReceivedBytes != 0 {
+			go node.printTransferInfo(time.Second)
 		}
 
 		// receive incoming packets and decrypt them if necessary
@@ -718,6 +722,13 @@ func (node *Node) receive() {
 					node.mutex.Lock()
 					node.transferInfo.Receiving.AcceptedFiles = append(node.transferInfo.Receiving.AcceptedFiles, file)
 					node.mutex.Unlock()
+
+					err = protocol.SendPacket(node.netInfo.Conn, protocol.Packet{
+						Header: protocol.HeaderReady,
+					})
+					if err != nil {
+						panic(err)
+					}
 				}
 
 				existingFileHandler.Close()
@@ -727,13 +738,13 @@ func (node *Node) receive() {
 				node.mutex.Lock()
 				node.transferInfo.Receiving.AcceptedFiles = append(node.transferInfo.Receiving.AcceptedFiles, file)
 				node.mutex.Unlock()
-			}
 
-			err = protocol.SendPacket(node.netInfo.Conn, protocol.Packet{
-				Header: protocol.HeaderReady,
-			})
-			if err != nil {
-				panic(err)
+				err = protocol.SendPacket(node.netInfo.Conn, protocol.Packet{
+					Header: protocol.HeaderReady,
+				})
+				if err != nil {
+					panic(err)
+				}
 			}
 
 		case protocol.HeaderFileBytes:
@@ -854,10 +865,6 @@ func (node *Node) receive() {
 			node.mutex.Unlock()
 
 			fmt.Printf("\n%s disconnected", node.netInfo.Conn.RemoteAddr())
-		}
-
-		if !node.verboseOutput && node.transferInfo.Receiving.ReceivedBytes != 0 {
-			go node.printTransferInfo(time.Second)
 		}
 	}
 }
