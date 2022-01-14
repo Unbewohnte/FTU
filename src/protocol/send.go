@@ -174,7 +174,7 @@ func SendPiece(file *fsys.File, connection net.Conn, encrKey []byte) (uint64, er
 
 	if encrKey != nil {
 		// account for padding
-		canSendBytes -= 32
+		canSendBytes -= 48
 	}
 
 	if (file.Size - file.SentBytes) < canSendBytes {

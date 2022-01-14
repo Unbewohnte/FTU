@@ -45,7 +45,7 @@ var ErrorNotFile error = fmt.Errorf("not a file")
 // Get general information about a file with the
 // future ability to open it.
 // NOTE that Handler field is nil BY DEFAULT until you
-// manually call a (file *File) Open() function to open it !
+// manually call (file *File).Open() to open it !
 func GetFile(path string) (*File, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {

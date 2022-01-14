@@ -91,7 +91,7 @@ func NewNode(options *NodeOptions) (*Node, error) {
 	var isDir bool
 	if options.IsSending {
 		// sending node preparation
-		sendingPathStats, err := os.Stat(options.ServerSide.ServingPath)
+		sendingPathStats, err := os.Stat(options.SenderSide.ServingPath)
 		if err != nil {
 			return nil, err
 		}
@@ -106,12 +106,12 @@ func NewNode(options *NodeOptions) (*Node, error) {
 	} else {
 		// receiving node preparation
 		var err error
-		options.ClientSide.DownloadsFolderPath, err = filepath.Abs(options.ClientSide.DownloadsFolderPath)
+		options.ReceiverSide.DownloadsFolderPath, err = filepath.Abs(options.ReceiverSide.DownloadsFolderPath)
 		if err != nil {
 			return nil, err
 		}
 
-		err = os.MkdirAll(options.ClientSide.DownloadsFolderPath, os.ModePerm)
+		err = os.MkdirAll(options.ReceiverSide.DownloadsFolderPath, os.ModePerm)
 		if err != nil {
 			return nil, err
 		}
@@ -125,22 +125,22 @@ func NewNode(options *NodeOptions) (*Node, error) {
 		isSending:     options.IsSending,
 		netInfo: &netInfo{
 			Port:          options.WorkingPort,
-			ConnAddr:      options.ClientSide.ConnectionAddr,
+			ConnAddr:      options.ReceiverSide.ConnectionAddr,
 			EncryptionKey: nil,
 			Conn:          nil,
 		},
 		stopped: false,
 		transferInfo: &transferInfo{
 			Sending: &sending{
-				ServingPath:       options.ServerSide.ServingPath,
-				Recursive:         options.ServerSide.Recursive,
+				ServingPath:       options.SenderSide.ServingPath,
+				Recursive:         options.SenderSide.Recursive,
 				IsDirectory:       isDir,
 				TotalTransferSize: 0,
 				SentBytes:         0,
 			},
 			Receiving: &receiving{
 				AcceptedFiles:     nil,
-				DownloadsPath:     options.ClientSide.DownloadsFolderPath,
+				DownloadsPath:     options.ReceiverSide.DownloadsFolderPath,
 				ReceivedBytes:     0,
 				TotalDownloadSize: 0,
 			},
@@ -512,7 +512,7 @@ func (node *Node) send() {
 			default:
 				node.stopped = true
 
-				fmt.Printf("\nAn error occured while sending a piece of \"%s\": %s", node.transferInfo.Sending.FilesToSend[currentFileIndex].Name, err)
+				fmt.Printf("\n[ERROR] An error occured while sending a piece of \"%s\": %s", node.transferInfo.Sending.FilesToSend[currentFileIndex].Name, err)
 				panic(err)
 			}
 		}
@@ -525,7 +525,7 @@ func (node *Node) receive() {
 	// connect to the sending node
 	err := node.connect()
 	if err != nil {
-		fmt.Printf("\nCould not connect to %s:%d", node.netInfo.ConnAddr, node.netInfo.Port)
+		fmt.Printf("\n[ERROR] Could not connect to %s:%d", node.netInfo.ConnAddr, node.netInfo.Port)
 		os.Exit(-1)
 	}
 
@@ -823,7 +823,10 @@ func (node *Node) receive() {
 					}
 
 					if realChecksum != acceptedFile.Checksum {
-						fmt.Printf("\n| \"%s\" is corrupted", acceptedFile.Name)
+						if node.verboseOutput {
+							fmt.Printf("\n[ERROR] \"%s\" is corrupted", acceptedFile.Name)
+						}
+
 						acceptedFile.Close()
 						break
 					} else {

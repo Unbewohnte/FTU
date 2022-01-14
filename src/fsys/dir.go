@@ -22,6 +22,7 @@ package fsys
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -63,7 +64,7 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 
 	// loop through each entry in the directory
 	entries, err := os.ReadDir(absPath)
-	if err != nil {
+	if err != nil && err != fs.ErrPermission {
 		return nil, err
 	}
 
@@ -96,7 +97,8 @@ func GetDir(path string, recursive bool) (*Directory, error) {
 
 			innerFile, err := GetFile(innerFilePath)
 			if err != nil {
-				return nil, err
+				// skip this file
+				continue
 			}
 
 			directory.Size += innerFile.Size

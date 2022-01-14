@@ -20,12 +20,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package node
 
-type ServerSideNodeOptions struct {
+type SenderNodeOptions struct {
 	ServingPath string
 	Recursive   bool
 }
 
-type ClientSideNodeOptions struct {
+type ReceiverNodeOptions struct {
 	ConnectionAddr      string
 	DownloadsFolderPath string
 }
@@ -35,6 +35,6 @@ type NodeOptions struct {
 	IsSending     bool
 	WorkingPort   uint
 	VerboseOutput bool
-	ServerSide    *ServerSideNodeOptions
-	ClientSide    *ClientSideNodeOptions
+	SenderSide    *SenderNodeOptions
+	ReceiverSide  *ReceiverNodeOptions
 }

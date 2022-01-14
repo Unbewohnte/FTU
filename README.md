@@ -46,7 +46,7 @@ Now you have ftu installed !
 ## ● Usage
 `ftu -h` - to print a usage message
 
-`ftu [FLAGS]`
+`ftu [FLAGs]`
 
 ### ● FLAGs
 - -p [uint] for port

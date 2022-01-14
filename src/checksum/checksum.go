@@ -21,6 +21,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package checksum
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -36,8 +37,8 @@ import (
 // GetPartialCheckSum is default method used to get a file checksum by sender and receiver
 func GetPartialCheckSum(file *os.File) (string, error) {
 	// "capturing" CHUNKSIZE bytes and then skipping STEP bytes before the next chunk until the last one
-	const CHUNKS uint = 100
-	const CHUNKSIZE uint = 100
+	const CHUNKS uint = 50
+	const CHUNKSIZE uint = 50
 	const STEP uint = 250
 
 	fileStats, err := file.Stat()
@@ -48,7 +49,7 @@ func GetPartialCheckSum(file *os.File) (string, error) {
 	fileSize := fileStats.Size()
 
 	if fileSize < int64(CHUNKS*CHUNKSIZE+STEP*(CHUNKS-1)) {
-		// file is too small to chop it in chunks, so just doing full checksum
+		// file is too small to chop it in chunks, so just get the full checksum
 
 		checksum, err := getFullCheckSum(file)
 		if err != nil {
@@ -62,19 +63,20 @@ func GetPartialCheckSum(file *os.File) (string, error) {
 		return "", err
 	}
 
-	var capturedChunks string
+	// var capturedChunks string
+	var capturedChunks bytes.Buffer
 	var read uint64 = 0
 	for i := 0; uint(i) < CHUNKS; i++ {
 		buffer := make([]byte, CHUNKSIZE)
 		r, _ := file.ReadAt(buffer, int64(read))
 
-		capturedChunks += string(buffer)
+		capturedChunks.Write(buffer)
 
 		read += uint64(r)
 		read += uint64(STEP)
 	}
 
-	checksumBytes := sha256.Sum256([]byte(capturedChunks))
+	checksumBytes := sha256.Sum256(capturedChunks.Bytes())
 	checksum := hex.EncodeToString(checksumBytes[:])
 
 	return checksum, nil
