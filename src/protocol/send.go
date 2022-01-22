@@ -209,3 +209,36 @@ func SendPiece(file *fsys.File, connection net.Conn, encrKey []byte) (uint64, er
 
 	return sentBytes, nil
 }
+
+// Sends a symlink to the other side. If encrKey is not nil - encrypts the packet with this key
+func SendSymlink(symlink *fsys.Symlink, connection net.Conn, encrKey []byte) error {
+	symlinkPacket := Packet{
+		Header: HeaderSymlink,
+	}
+
+	symlinkPacketBodyBuff := new(bytes.Buffer)
+
+	// SYMLINK~(string size in binary)(location in the filesystem)(string size in binary)(location of a target)
+
+	binary.Write(symlinkPacketBodyBuff, binary.BigEndian, uint64(len(symlink.Path)))
+	symlinkPacketBodyBuff.Write([]byte(symlink.Path))
+
+	binary.Write(symlinkPacketBodyBuff, binary.BigEndian, uint64(len(symlink.TargetPath)))
+	symlinkPacketBodyBuff.Write([]byte(symlink.TargetPath))
+
+	symlinkPacket.Body = symlinkPacketBodyBuff.Bytes()
+
+	if encrKey != nil {
+		err := symlinkPacket.EncryptBody(encrKey)
+		if err != nil {
+			return err
+		}
+	}
+
+	err := SendPacket(connection, symlinkPacket)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

@@ -21,6 +21,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package fsys
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -79,25 +81,23 @@ func Test_GetFiles(t *testing.T) {
 
 }
 
-// func Test_SetRelativePaths(t *testing.T) {
-// 	dirpath := "../testfiles/"
+func Test_GetSymlinks(t *testing.T) {
+	dirpath := "../testfiles/"
 
-// 	dir, err := GetDir(dirpath, true)
-// 	if err != nil {
-// 		t.Fatalf("%s", err)
-// 	}
+	os.Symlink(filepath.Join(dirpath, "testfile.txt"), filepath.Join(dirpath, "testsymlink.txt"))
+	os.Symlink(filepath.Join(dirpath, "testdir", "testfile2.txt"), filepath.Join(dirpath, "testdir", "testsymlink2.txt"))
 
-// 	absDirPath, err := filepath.Abs(dirpath)
-// 	if err != nil {
-// 		t.Fatalf("%s", err)
-// 	}
+	dir, err := GetDir(dirpath, true)
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
 
-// 	err = dir.SetRelativePaths(absDirPath, true)
-// 	if err != nil {
-// 		t.Fatalf("%s", err)
-// 	}
+	// recursive
+	symlinks := dir.GetAllSymlinks(true)
 
-// 	for count, file := range dir.GetAllFiles(true) {
-// 		t.Errorf("[%d] %v\n", count, file.RelativeParentPath)
-// 	}
-// }
+	symlinkCount := 2
+
+	if len(symlinks) != symlinkCount {
+		t.Fatalf("expected to get %d symlinks; got %d\n", symlinkCount, len(symlinks))
+	}
+}

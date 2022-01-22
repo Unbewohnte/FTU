@@ -114,3 +114,10 @@ const HeaderDirectory Header = "DIRECTORY"
 // Body must contain a file ID.
 // ie: ALREADYHAVE~(file ID in binary)
 const HeaderAlreadyHave Header = "ALREADYHAVE"
+
+// SYMLINK
+// Sent by sender AFTER ALL FILES has been sent already. Indicates that there
+// is a symlink in some place that points to some other already received file.
+// Body must contain information where the symlink is and the target file.
+// ie: SYMLINK~(string size in binary)(location in the filesystem)(string size in binary)(location of a target)
+const HeaderSymlink Header = "SYMLINK"

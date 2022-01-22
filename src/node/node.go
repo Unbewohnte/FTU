@@ -49,16 +49,18 @@ type netInfo struct {
 
 // Sending-side node information
 type sending struct {
-	ServingPath       string // path to the thing that will be sent
-	IsDirectory       bool   // is ServingPath a directory
-	Recursive         bool   // recursively send directory
-	CanSendBytes      bool   // is the other node ready to receive another piece
-	AllowedToTransfer bool   // the way to notify the mainloop of a sending node to start sending pieces of files
-	InTransfer        bool   // already transferring|receiving files
-	FilesToSend       []*fsys.File
-	CurrentFileID     uint64 // an id of a file that is currently being transported
-	SentBytes         uint64 // how many bytes sent already
-	TotalTransferSize uint64 // how many bytes will be sent in total
+	ServingPath         string // path to the thing that will be sent
+	IsDirectory         bool   // is ServingPath a directory
+	Recursive           bool   // recursively send directory
+	CanSendBytes        bool   // is the other node ready to receive another piece
+	AllowedToTransfer   bool   // the way to notify the mainloop of a sending node to start sending pieces of files
+	InTransfer          bool   // already transferring|receiving files
+	FilesToSend         []*fsys.File
+	SymlinksToSend      []*fsys.Symlink
+	CurrentFileID       uint64 // an id of a file that is currently being transported
+	SentBytes           uint64 // how many bytes sent already
+	TotalTransferSize   uint64 // how many bytes will be sent in total
+	CurrentSymlinkIndex uint64 // current index of a symlink that is
 }
 
 // Receiving-side node information
@@ -355,8 +357,10 @@ func (node *Node) send() {
 					panic(err)
 				}
 				filesToSend := DIRTOSEND.GetAllFiles(node.transferInfo.Sending.Recursive)
+				symlinksToSend := DIRTOSEND.GetAllSymlinks(node.transferInfo.Sending.Recursive)
 
-				// notify the other node about all the files that are going to be sent
+				node.transferInfo.Sending.SymlinksToSend = symlinksToSend
+
 				for counter, file := range filesToSend {
 					// assign ID and add it to the node sendlist
 					file.ID = uint64(counter)
@@ -410,7 +414,14 @@ func (node *Node) send() {
 
 		// Transfer section
 
-		if len(node.transferInfo.Sending.FilesToSend) == 0 {
+		// if all files have been sent -> send symlinks
+		if len(node.transferInfo.Sending.FilesToSend) == 0 && node.transferInfo.Sending.CurrentSymlinkIndex < uint64(len(node.transferInfo.Sending.SymlinksToSend)) {
+			protocol.SendSymlink(node.transferInfo.Sending.SymlinksToSend[node.transferInfo.Sending.CurrentSymlinkIndex], node.netInfo.Conn, encrKey)
+			node.transferInfo.Sending.CurrentSymlinkIndex++
+			continue
+		}
+
+		if len(node.transferInfo.Sending.FilesToSend) == 0 && node.transferInfo.Sending.CurrentSymlinkIndex == uint64(len(node.transferInfo.Sending.SymlinksToSend)) {
 			// if there`s nothing else to send - create and send DONE packet
 			protocol.SendPacket(node.netInfo.Conn, protocol.Packet{
 				Header: protocol.HeaderDone,
@@ -856,6 +867,41 @@ func (node *Node) receive() {
 			node.netInfo.EncryptionKey = encrKey
 
 			fmt.Printf("\nGot an encryption key: %s", encrKey)
+
+		case protocol.HeaderSymlink:
+			// SYMLINK~(string size in binary)(location in the filesystem)(string size in binary)(location of a target)
+			packetReader := bytes.NewReader(incomingPacket.Body)
+
+			// extract the location of the symlink
+			var locationSize uint64
+			binary.Read(packetReader, binary.BigEndian, &locationSize)
+
+			symlinkLocationBytes := make([]byte, locationSize)
+			packetReader.Read(symlinkLocationBytes)
+
+			// extract the target of a symlink
+			var targetSize uint64
+			binary.Read(packetReader, binary.BigEndian, &targetSize)
+
+			symlinkTargetLocationBytes := make([]byte, targetSize)
+			packetReader.Read(symlinkTargetLocationBytes)
+
+			symlinkLocation := string(symlinkLocationBytes)
+			symlinkTargetLocation := string(symlinkTargetLocationBytes)
+
+			// create a symlink
+
+			// should be already downloaded
+			symlinkDir := filepath.Join(node.transferInfo.Receiving.DownloadsPath, filepath.Dir(symlinkLocation))
+			os.MkdirAll(symlinkDir, os.ModePerm)
+
+			os.Symlink(
+				filepath.Join(node.transferInfo.Receiving.DownloadsPath, symlinkTargetLocation),
+				filepath.Join(node.transferInfo.Receiving.DownloadsPath, symlinkLocation))
+
+			protocol.SendPacket(node.netInfo.Conn, protocol.Packet{
+				Header: protocol.HeaderReady,
+			})
 
 		case protocol.HeaderDone:
 			node.mutex.Lock()
