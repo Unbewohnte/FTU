@@ -774,10 +774,11 @@ func (node *Node) receive() {
 					// accepted
 
 					// append provided bytes to the file
-
-					err = acceptedFile.Open()
-					if err != nil {
-						panic(err)
+					if acceptedFile.Handler == nil {
+						err = acceptedFile.Open()
+						if err != nil {
+							panic(err)
+						}
 					}
 
 					fileBytes := fileBytesBuffer.Bytes()
@@ -788,11 +789,6 @@ func (node *Node) receive() {
 					}
 					acceptedFile.SentBytes += uint64(wrote)
 					node.transferInfo.Receiving.ReceivedBytes += uint64(wrote)
-
-					err = acceptedFile.Close()
-					if err != nil {
-						panic(err)
-					}
 				}
 			}
 
@@ -819,9 +815,11 @@ func (node *Node) receive() {
 						fmt.Printf("\n[File] fully received \"%s\" -- %d bytes", acceptedFile.Name, acceptedFile.Size)
 					}
 
-					err = acceptedFile.Open()
-					if err != nil {
-						panic(err)
+					if acceptedFile.Handler == nil {
+						err = acceptedFile.Open()
+						if err != nil {
+							panic(err)
+						}
 					}
 
 					// remove this file from the pool

@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	VERSION string = "v2.3.0"
+	VERSION string = "v2.3.1"
 
 	versionInformation string = fmt.Sprintf("ftu %s\nfile transferring utility\n\nCopyright (C) 2021,2022  Kasyanov Nikolay Alexeevich (Unbewohnte (me@unbewohnte.xyz))\nThis program comes with ABSOLUTELY NO WARRANTY.\nThis is free software, and you are welcome to redistribute it under certain conditions; type \"ftu -l\" for details.\n", VERSION)
 
