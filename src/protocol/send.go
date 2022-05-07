@@ -28,8 +28,8 @@ import (
 	"io"
 	"net"
 
-	"github.com/Unbewohnte/ftu/encryption"
-	"github.com/Unbewohnte/ftu/fsys"
+	"unbewohnte.xyz/Unbewohnte/ftu/encryption"
+	"unbewohnte.xyz/Unbewohnte/ftu/fsys"
 )
 
 // Sends given packet to connection.

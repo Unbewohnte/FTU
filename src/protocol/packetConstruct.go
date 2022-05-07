@@ -25,7 +25,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/Unbewohnte/ftu/fsys"
+	"unbewohnte.xyz/Unbewohnte/ftu/fsys"
 )
 
 // constructs a ready to send FILE packet

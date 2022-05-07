@@ -31,7 +31,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Unbewohnte/ftu/encryption"
+	"unbewohnte.xyz/Unbewohnte/ftu/encryption"
 )
 
 // Internal representation of packet before|after the transportation

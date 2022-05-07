@@ -25,7 +25,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Unbewohnte/ftu/checksum"
+	"unbewohnte.xyz/Unbewohnte/ftu/checksum"
 )
 
 // A struct that represents the necessary file information for transportation through node

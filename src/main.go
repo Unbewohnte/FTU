@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Unbewohnte/ftu/node"
+	"unbewohnte.xyz/Unbewohnte/ftu/node"
 )
 
 var (

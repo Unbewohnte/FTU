@@ -26,7 +26,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/Unbewohnte/ftu/fsys"
+	"unbewohnte.xyz/Unbewohnte/ftu/fsys"
 )
 
 var ErrorWrongPacket error = fmt.Errorf("wrong type of packet header")

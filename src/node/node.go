@@ -32,11 +32,11 @@ import (
 
 	"fmt"
 
-	"github.com/Unbewohnte/ftu/addr"
-	"github.com/Unbewohnte/ftu/checksum"
-	"github.com/Unbewohnte/ftu/encryption"
-	"github.com/Unbewohnte/ftu/fsys"
-	"github.com/Unbewohnte/ftu/protocol"
+	"unbewohnte.xyz/Unbewohnte/ftu/addr"
+	"unbewohnte.xyz/Unbewohnte/ftu/checksum"
+	"unbewohnte.xyz/Unbewohnte/ftu/encryption"
+	"unbewohnte.xyz/Unbewohnte/ftu/fsys"
+	"unbewohnte.xyz/Unbewohnte/ftu/protocol"
 )
 
 // netInfowork specific settings
