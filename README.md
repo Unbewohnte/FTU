@@ -16,7 +16,7 @@ In order to transfer one file on one computer to another - they need to establis
 
 In order to establish a connection - there needs to be a 1) sender (server) (the owner of the file), waiting for connections, and a 2) receiver (client), who will try to connect to a sender (server). If the requirements are met - client will connect to server and the packet exchange will begin.
  
-The server and the client needs to communicate with packets according to certain rules, given by a [protocol](https://github.com/Unbewohnte/ftu/tree/main/src/protocol).
+The server and the client needs to communicate with packets according to certain rules, given by a [protocol](http://unbewohnte.xyz:3000/Unbewohnte/ftu/src/branch/main/src/protocol).
 
 The packet has its header and body. They are divided into several groups of use by headers, this way we can specify what kind of data is stored inside packet`s body and react accordingly.
 
@@ -28,13 +28,13 @@ Thus, with a connection and a way of communication, the sender will send some pa
 ## ● Installation
 
 ### ● From release (Pre-compiled)
-- Proceed to [releases page](https://github.com/Unbewohnte/ftu/releases)
+- Proceed to [releases page](http://unbewohnte.xyz:3000/Unbewohnte/ftu/releases)
 - Choose a version/architecture you have and download an archive
 - Unpack an archive
 - If on GNU/Linux - run `chmod +x install.sh && sudo ./install.sh`
 
 ### ● From source (Compile it yourself) (You need [Go](https://golang.org/dl/) and [git](https://git-scm.com/) to be installed on your machine)
-- `git clone https://github.com/Unbewohnte/ftu.git`
+- `git clone http://unbewohnte.xyz:3000/Unbewohnte/ftu`
 - `cd` into the folder
 - If on GNU/Linux - run `make && sudo make install` or `make && chmod +x install.sh && sudo ./install`
 - else - cd into src/ folder and simply run `go build`; after that you`re free to put the binary wherever you desire 
