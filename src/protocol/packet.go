@@ -1,6 +1,6 @@
 /*
 ftu - file transferring utility.
-Copyright (C) 2021,2022  Kasyanov Nikolay Alexeyevich (Unbewohnte (https://unbewohnte.xyz/))
+Copyright (C) 2021,2022  Kasyanov Nikolay Alexeyevich (Unbewohnte)
 
 This file is a part of ftu
 
@@ -31,7 +31,7 @@ import (
 	"fmt"
 	"strings"
 
-	"unbewohnte.xyz/Unbewohnte/ftu/encryption"
+	"unbewohnte/ftu/encryption"
 )
 
 // Internal representation of packet before|after the transportation

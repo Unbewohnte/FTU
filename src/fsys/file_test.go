@@ -1,6 +1,6 @@
 /*
 ftu - file transferring utility.
-Copyright (C) 2021,2022  Kasyanov Nikolay Alexeyevich (Unbewohnte (https://unbewohnte.xyz/))
+Copyright (C) 2021,2022  Kasyanov Nikolay Alexeyevich (Unbewohnte)
 
 This file is a part of ftu
 

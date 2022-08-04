@@ -1,6 +1,6 @@
 /*
 ftu - file transferring utility.
-Copyright (C) 2021,2022  Kasyanov Nikolay Alexeyevich (Unbewohnte (https://unbewohnte.xyz/))
+Copyright (C) 2021,2022  Kasyanov Nikolay Alexeyevich (Unbewohnte)
 
 This file is a part of ftu
 
@@ -32,11 +32,11 @@ import (
 
 	"fmt"
 
-	"unbewohnte.xyz/Unbewohnte/ftu/addr"
-	"unbewohnte.xyz/Unbewohnte/ftu/checksum"
-	"unbewohnte.xyz/Unbewohnte/ftu/encryption"
-	"unbewohnte.xyz/Unbewohnte/ftu/fsys"
-	"unbewohnte.xyz/Unbewohnte/ftu/protocol"
+	"unbewohnte/ftu/addr"
+	"unbewohnte/ftu/checksum"
+	"unbewohnte/ftu/encryption"
+	"unbewohnte/ftu/fsys"
+	"unbewohnte/ftu/protocol"
 )
 
 // netInfowork specific settings
@@ -325,7 +325,7 @@ func (node *Node) send() {
 		incomingPacket, ok := <-node.packetPipe
 		if !ok {
 			fmt.Printf("\nThe connection has been closed unexpectedly\n")
-			os.Exit(-1.)
+			os.Exit(-1)
 		}
 
 		// if encryption key is set - decrypt packet on the spot
@@ -536,7 +536,7 @@ func (node *Node) receive() {
 	// connect to the sending node
 	err := node.connect()
 	if err != nil {
-		fmt.Printf("\n[ERROR] Could not connect to %s:%d", node.netInfo.ConnAddr, node.netInfo.Port)
+		fmt.Printf("\n[ERROR] Could not connect to %s:%d\n", node.netInfo.ConnAddr, node.netInfo.Port)
 		os.Exit(-1)
 	}
 

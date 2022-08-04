@@ -26,13 +26,13 @@ import (
 	"fmt"
 	"os"
 
-	"unbewohnte.xyz/Unbewohnte/ftu/node"
+	"unbewohnte/ftu/node"
 )
 
 var (
-	VERSION string = "v2.3.2"
+	VERSION string = "v2.3.3"
 
-	versionInformation string = fmt.Sprintf("ftu %s\nfile transferring utility\n\nCopyright (C) 2021,2022  Kasyanov Nikolay Alexeyevich (Unbewohnte (me@unbewohnte.xyz))\nThis program comes with ABSOLUTELY NO WARRANTY.\nThis is free software, and you are welcome to redistribute it under certain conditions; type \"ftu -l\" for details.\n", VERSION)
+	versionInformation string = fmt.Sprintf("ftu %s\nfile transferring utility\n\nCopyright (C) 2021,2022  Kasyanov Nikolay Alexeyevich (Unbewohnte)\nThis program comes with ABSOLUTELY NO WARRANTY.\nThis is free software, and you are welcome to redistribute it under certain conditions; type \"ftu -l\" for details.\n", VERSION)
 
 	//go:embed COPYING
 	licenseInformation string
@@ -55,12 +55,12 @@ func init() {
 		fmt.Printf("ftu -[FLAGs]\n\n")
 
 		fmt.Printf("[FLAGs]\n\n")
-		fmt.Printf("| -p [Uinteger_here] for port\n")
-		fmt.Printf("| -r [true|false] for recursive sending of a directory\n")
+		fmt.Printf("| -p [integer] for port\n")
+		fmt.Printf("| -r [true|false] send recursively or not\n")
 		fmt.Printf("| -a [ip_address|domain_name] address to connect to (cannot be used with -s)\n")
 		fmt.Printf("| -d [path_to_directory] where the files will be downloaded to (cannot be used with -s)\n")
-		fmt.Printf("| -s [path_to_file|directory] to send it (cannot be used with -a)\n")
-		fmt.Printf("| -? [true|false] to turn on|off verbose output\n")
+		fmt.Printf("| -s [path_to_file|directory] send it (cannot be used with -a)\n")
+		fmt.Printf("| -? [true|false] turn on|off verbose output\n")
 		fmt.Printf("| -l print license information\n")
 		fmt.Printf("| -v print version information\n\n\n")
 
@@ -98,12 +98,12 @@ func init() {
 
 	// validate flags
 	if *SEND == "" && *ADDRESS == "" {
-		fmt.Printf("Neither sending nor receiving flag was specified. Run ftu -h for help\n")
+		fmt.Printf("[ERROR] Neither sending nor receiving flag was specified. Run ftu -h for help\n")
 		os.Exit(-1)
 	}
 
 	if *SEND != "" && *ADDRESS != "" {
-		fmt.Printf("Can`t send and receive at the same time. Specify either -s or -a\n")
+		fmt.Printf("[ERROR] Can't send and receive at the same time. Specify either -s or -a\n")
 		os.Exit(-1)
 	}
 
